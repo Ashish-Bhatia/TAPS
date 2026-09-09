@@ -1,7 +1,9 @@
 # TAPS — Loop Prevention & Escalation Protocol
+
 **This document is mandatory reading. Its rules override "keep trying" instincts.**
 
 ## Why this exists
+
 Long-running AI-driven development can get stuck: repeating the same failed fix, oscillating between two designs, or endlessly "refining" something without shipping it. This protocol makes stalling detectable and forces a decision.
 
 ## Hard Rules
@@ -13,6 +15,7 @@ Long-running AI-driven development can get stuck: repeating the same failed fix,
 3. **No silent scope creep as a stalling tactic.** If a story seems stuck, the answer is never to quietly expand it into a bigger refactor to "solve it properly." Ship the smallest change that satisfies the acceptance criteria; file a follow-up story for anything bigger.
 
 4. **Escalation format** (when Rule 1 or 2 triggers, or a task requires a founder-only action):
+
    ```
    BLOCKED: [one-line description]
    Tried: [what was attempted, and result of each attempt]
@@ -22,6 +25,7 @@ Long-running AI-driven development can get stuck: repeating the same failed fix,
    Recommendation: [A or B, and why]
    Needs from you: [exact decision, or exact action per Custom Instructions Rule 2]
    ```
+
    This format is used in-chat and, for repo-affecting blocks, also written to `docs/runbooks/` or as a comment on the relevant GitHub issue/PR so it isn't lost.
 
 5. **Session/context boundaries.** At the start of any new working session (new chat, or a fresh Claude Code invocation), re-state current Sprint, current Story in progress, and last known state before continuing — never assume unstated context carried over perfectly. This prevents "loop via amnesia," where work is redone because prior state wasn't re-established.
@@ -31,4 +35,5 @@ Long-running AI-driven development can get stuck: repeating the same failed fix,
 7. **CI/test failures.** If the same test fails after a fix is pushed, do not push a second unverified guess — reproduce the failure locally/in Codespace first, confirm the actual cause, then fix. Guessing repeatedly against CI is a loop.
 
 ## What "not stuck" looks like
+
 Forward progress every session: a story moves state (Ready → In Progress → Done, or explicitly Blocked with the escalation format above) — it never just sits in the same state across multiple sessions without a stated reason.

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: Lint & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies (all workspaces)
+        run: npm ci
+
+      - name: Lint (every workspace with a lint script)
+        run: npm run lint --workspaces --if-present
+
+      - name: Test (every workspace with a test script)
+        run: npm run test --workspaces --if-present
+
+      - name: Format check
+        run: npm run format:check

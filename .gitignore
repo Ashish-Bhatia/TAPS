@@ -1,0 +1,34 @@
+# dependencies
+node_modules
+.pnp
+.pnp.*
+
+# builds / framework output
+.next/
+out/
+build/
+dist/
+.expo/
+.expo-shared/
+web-build/
+
+# testing
+coverage/
+
+# env files — real secrets never committed, .env.example is
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# editor
+.vscode/*
+!.vscode/extensions.json

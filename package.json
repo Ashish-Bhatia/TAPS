@@ -1,0 +1,22 @@
+{
+  "name": "taps",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TAPS (Teacher Assessment and Preparation System) monorepo — web, mobile, and API apps.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.1",
+    "prettier": "^3.4.2"
+  }
+}

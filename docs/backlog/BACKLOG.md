@@ -1,0 +1,33 @@
+# TAPS — Product Backlog
+
+Format and cadence: `04-AGILE-PROCESS.md`. Maintained by Claude Code as part of normal commits.
+
+| ID        | Title                                                                                      | Epic                                          | Status | Sprint   |
+| --------- | ------------------------------------------------------------------------------------------ | --------------------------------------------- | ------ | -------- |
+| TAPS-1.1  | Scaffold `apps/web` (Next.js, TypeScript)                                                  | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.2  | Scaffold `apps/api` (NestJS, TypeScript, Vitest)                                           | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.3  | Scaffold `apps/mobile` (Expo, React Native, TypeScript)                                    | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.4  | Convert repo to an npm workspaces monorepo (single root install + lockfile)                | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.5  | Standardize on ESLint in all three apps (replace `apps/api`'s oxlint per coding standards) | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.6  | Repo-wide Prettier config + `format`/`format:check` scripts                                | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.7  | Husky pre-commit hook (lint-staged Prettier + full ESLint)                                 | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.8  | GitHub Actions CI: lint + test on every PR to `main`/`develop`                             | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.9  | Local dev setup doc (`docs/setup/local-development.md`)                                    | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.10 | ADR: monorepo tooling (workspaces, ESLint/Prettier/Husky, React version alignment)         | EPIC 1: Repo, CI/CD & environment scaffolding | Done   | Sprint 0 |
+| TAPS-1.11 | Add unit test scaffolding to `web` and `mobile` (currently only `api` has a `test` script) | EPIC 1: Repo, CI/CD & environment scaffolding | Ready  | —        |
+| TAPS-1.12 | Initialize `packages/types` as a real shared workspace (currently an empty placeholder)    | EPIC 1: Repo, CI/CD & environment scaffolding | Ready  | —        |
+| TAPS-1.13 | Initialize `packages/ui` as a real shared workspace (currently an empty placeholder)       | EPIC 1: Repo, CI/CD & environment scaffolding | Ready  | —        |
+
+## Epics (seed list, per `04-AGILE-PROCESS.md` §7 — refined at future sprint plannings)
+
+- EPIC 1: Repo, CI/CD & environment scaffolding
+- EPIC 2: Content data model + CMS/admin for Posts, ExamBoards, PastPapers, StudyMaterial, Syllabus
+- EPIC 3: Web app — navigation, exam hub pages, search
+- EPIC 4: AI quiz engine (question generation + adaptive selection)
+- EPIC 5: User accounts, progress dashboard
+- EPIC 6: Mobile app (Android)
+- EPIC 7: AI study-plan generator
+- EPIC 8: AI doubt-solving assistant
+
+Epics 2–8 are not yet broken into stories — that's Sprint 1 planning, once Sprint 0's scaffold
+(this table's EPIC 1 rows) is confirmed done.
