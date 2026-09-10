@@ -24,6 +24,18 @@ This diffs `prisma/schema.prisma` against the migration history, writes a new
 points at. Commit the generated `migration.sql` — migrations are code, not generated artifacts to
 gitignore.
 
+**`migrate dev` refuses to run at all in a non-interactive shell** (e.g. this agent's sandbox),
+even with `--create-only`: `Error: Prisma Migrate has detected that the environment is
+non-interactive, which is not supported.` When that happens (confirmed while adding
+`TAPS-2.4`'s `ExamBoard.name` unique constraint), generate the SQL by hand instead:
+
+```bash
+cd apps/api
+npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script
+# then create prisma/migrations/<timestamp>_<name>/migration.sql with that output yourself,
+# and apply it with `prisma migrate deploy` (below) — which is non-interactive-safe.
+```
+
 ## Applying existing migrations to Neon (what actually ran for the first migration)
 
 ```bash
