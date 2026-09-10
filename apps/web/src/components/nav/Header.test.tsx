@@ -48,4 +48,12 @@ describe('Header', () => {
 
     expect(screen.getAllByText('No exam boards available yet')).toHaveLength(2);
   });
+
+  it('has a search box that GETs to /search (TAPS-3.4, needs no client JS)', () => {
+    render(<Header examBoards={[]} />);
+
+    const form = screen.getByRole('search') as HTMLFormElement;
+    expect(form.getAttribute('action')).toBe('/search');
+    expect(screen.getByRole('searchbox').getAttribute('name')).toBe('q');
+  });
 });

@@ -1,4 +1,4 @@
-import { getExamBoard, getExamBoardsForNav, getPostsByExamBoard } from './api';
+import { getExamBoard, getExamBoardsForNav, getPostsByExamBoard, search } from './api';
 
 describe('getExamBoardsForNav', () => {
   const originalFetch = global.fetch;
@@ -84,5 +84,28 @@ describe('getPostsByExamBoard', () => {
 
     await expect(getPostsByExamBoard('board-1')).resolves.toEqual(posts);
     expect(fetchMock.mock.calls[0][0]).toContain('/public/posts?examBoardId=board-1');
+  });
+});
+
+describe('search', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('URL-encodes the query and returns the paginated result as-is', async () => {
+    const page = {
+      data: [{ type: 'exam-board', id: '1', title: 'DSSSB', examBoardId: null, rank: 0.3 }],
+      page: 1,
+      pageSize: 20,
+      total: 1,
+      totalPages: 1,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(page) });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(search('teacher eligibility')).resolves.toEqual(page);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/search?q=teacher%20eligibility');
   });
 });
