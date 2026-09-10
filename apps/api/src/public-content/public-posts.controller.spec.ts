@@ -26,9 +26,20 @@ describe('PublicPostsController', () => {
   it('findAll passes the examBoardId query param through to the service', async () => {
     const page = { data: [], page: 1, pageSize: 20, total: 0, totalPages: 0 };
     serviceMock.findAll.mockResolvedValue(page);
+    const query = { page: 1, pageSize: 20, examBoardId: 'board-1' };
 
-    await controller.findAll({ page: 1, pageSize: 20 }, 'board-1');
+    await controller.findAll(query);
 
-    expect(serviceMock.findAll).toHaveBeenCalledWith({ page: 1, pageSize: 20 }, 'board-1');
+    expect(serviceMock.findAll).toHaveBeenCalledWith(query, 'board-1');
+  });
+
+  it('findAll works with no examBoardId (unfiltered listing)', async () => {
+    const page = { data: [], page: 1, pageSize: 20, total: 0, totalPages: 0 };
+    serviceMock.findAll.mockResolvedValue(page);
+    const query = { page: 1, pageSize: 20 };
+
+    await controller.findAll(query);
+
+    expect(serviceMock.findAll).toHaveBeenCalledWith(query, undefined);
   });
 });

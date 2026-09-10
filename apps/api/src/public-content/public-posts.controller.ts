@@ -1,6 +1,7 @@
 import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
 import { Post } from '@prisma/client';
-import { Paginated, PaginationQueryDto } from '../common/pagination-query.dto.js';
+import { Paginated } from '../common/pagination-query.dto.js';
+import { ListPostsQueryDto } from './dto/list-posts-query.dto.js';
 import { PublicPostsService } from './public-posts.service.js';
 
 /**
@@ -11,12 +12,13 @@ import { PublicPostsService } from './public-posts.service.js';
 export class PublicPostsController {
   constructor(private readonly postsService: PublicPostsService) {}
 
+  // Single DTO carrying every accepted query field (page, pageSize,
+  // examBoardId), bound via one @Query() — see
+  // dto/list-posts-query.dto.ts for why that matters (a real bug, found
+  // live, when this used a second, separate @Query('examBoardId') param).
   @Get()
-  findAll(
-    @Query() pagination: PaginationQueryDto,
-    @Query('examBoardId') examBoardId?: string,
-  ): Promise<Paginated<Post>> {
-    return this.postsService.findAll(pagination, examBoardId);
+  findAll(@Query() query: ListPostsQueryDto): Promise<Paginated<Post>> {
+    return this.postsService.findAll(query, query.examBoardId);
   }
 
   // Looked up by slug, not id — slug is Post's public-facing identifier

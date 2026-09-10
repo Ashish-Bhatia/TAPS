@@ -1,7 +1,8 @@
 # `apps/web` — App Structure & Navigation
 
-Covers `TAPS-3.2`. Next.js 16 App Router, `src/app/`. See
-`docs/adr/007-nav-data-sourcing.md` for the navigation data-sourcing decision this doc assumes.
+Covers `TAPS-3.2` and `TAPS-3.3`. Next.js 16 App Router, `src/app/`. See
+`docs/adr/007-nav-data-sourcing.md` for the navigation data-sourcing decision and
+`docs/adr/008-web-api-fetch-caching.md` for the API fetch caching decision this doc assumes.
 
 ## Layout & navigation
 
@@ -17,17 +18,38 @@ so no page needs to wire navigation itself.
 - `src/components/nav/Footer.tsx` — static/legal page links.
 - `src/lib/nav-config.ts` — the static portion of the nav structure (labels/order for the
   non-exam-board categories).
-- `src/lib/api.ts` — `apiFetch()` (thin fetch wrapper around `docs/api/public-content.md`) and
-  `getExamBoardsForNav()` (fails soft to `[]` on any API error — see the ADR).
+- `src/lib/api.ts` — `apiFetch()` (thin fetch wrapper around `docs/api/public-content.md`,
+  `getExamBoardsForNav()` (fails soft to `[]` on any API error — see ADR 007), and
+  `getExamBoard(id)`/`getPostsByExamBoard(examBoardId)` for the exam hub page (`TAPS-3.3`) — these
+  do NOT fail soft, since the hub page's own content genuinely depends on them; a real API error
+  should surface as an error, not a page that looks fine but is silently missing its content.
+  `getExamBoard` returns `null` specifically for a `404`, which the page turns into Next's
+  `notFound()`.
+
+## Data fetching & caching
+
+Every `apps/web` → `apps/api` fetch uses `cache: 'no-store'` — no `next.revalidate` anywhere. This
+was not the original design (ISR-style `revalidate: 300` caching was tried first) — see
+`docs/adr/008-web-api-fetch-caching.md` for the real bug that caused the switch (a stale/empty
+cached response that survived full dev-server restarts) and its accepted consequence (every route
+is now server-rendered per-request rather than statically pre-rendered).
 
 ## Routing conventions
 
 - Exam hub pages: `/exam-boards/[id]` (`TAPS-3.3`) — `ExamBoard.id`, not a slug; `ExamBoard` has no
-  slug field (`docs/adr/006-public-content-api-shape.md`).
-- Placeholder/"coming soon" routes for nav categories with no public API yet: `/syllabus`,
-  `/previous-papers`, `/study-materials`, `/new-jobs`, `/ncert-books`, plus the footer's
-  `/about`, `/contact`, `/disclaimer`, `/privacy` — all real, working routes (never a silent 404
-  for a primary nav item), rendering `src/components/ui/ComingSoon.tsx`.
+  slug field (`docs/adr/006-public-content-api-shape.md`). `generateMetadata` sets the page
+  title/description from the fetched `ExamBoard`; a segment-level `not-found.tsx` renders when
+  `getExamBoard` returns `null`.
+- The hub page's "Syllabus / Exam Pattern / Previous Papers / Study Material / Eligibility"
+  sub-section links (per the "Exam Hub page" type in
+  `03-SOURCE-SITE-CONTENT-INVENTORY.md`) route to the generic placeholder pages below, not
+  per-board routes — none of those models have a public API yet (only `ExamBoard`/`Post` do).
+  Becoming board-specific (e.g. `/exam-boards/[id]/syllabus`) is a natural follow-up once they do.
+- Placeholder/"coming soon" routes for nav categories and hub sub-sections with no public API yet:
+  `/syllabus`, `/exam-pattern`, `/previous-papers`, `/study-materials`, `/eligibility`,
+  `/new-jobs`, `/ncert-books`, plus the footer's `/about`, `/contact`, `/disclaimer`, `/privacy` —
+  all real, working routes (never a silent 404 for a primary nav item or hub section), rendering
+  `src/components/ui/ComingSoon.tsx`.
 - `params` is a `Promise` in this Next.js version (breaking change from 14 and earlier) — always
   `await props.params`, and prefer the generated `PageProps<'/route'>`/`LayoutProps<'/route'>`
   type helpers over hand-written param types.

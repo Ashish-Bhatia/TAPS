@@ -59,3 +59,16 @@ slug lookup, both absent from the list) — then all three were deleted, leaving
 - **Harder:** `ExamBoard` and `Post` now have differently-shaped detail URLs (`/public/exam-boards/:id`
   vs `/public/posts/:slug`) — a minor API-surface inconsistency, documented rather than papered
   over with a field that doesn't earn its keep yet.
+
+## Addendum (`TAPS-3.3`): `?examBoardId=` filter bug, found live and fixed
+
+The original `PublicPostsController.findAll` bound the query string to two separate `@Query()`
+params — `@Query() pagination: PaginationQueryDto` plus a standalone `@Query('examBoardId')`. The
+global `ValidationPipe`'s `forbidNonWhitelisted: true` validates the _entire_ incoming query
+object against whichever DTO class is attached to a `@Query()` param, so `?examBoardId=...` was
+rejected with `400 property examBoardId should not exist` — the two decorators don't know about
+each other, and `PaginationQueryDto` never declared `examBoardId`. `TAPS-3.1`'s own manual
+verification never exercised this exact combination (pagination + the filter together), so it
+shipped unnoticed until `TAPS-3.3`'s exam hub page became the filter's first real caller. Fixed by
+declaring every accepted query field on one DTO (`ListPostsQueryDto extends PaginationQueryDto`,
+`apps/api/src/public-content/dto/list-posts-query.dto.ts`) bound via a single `@Query()`.
