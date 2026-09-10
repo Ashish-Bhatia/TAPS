@@ -23,6 +23,11 @@ RUN npm ci --ignore-scripts
 
 FROM deps AS build
 COPY apps/api ./apps/api
+# --ignore-scripts above skipped apps/api's "postinstall" (`prisma generate`),
+# so run it explicitly before compiling — the build needs the generated
+# client's types, and it needs to run in a stage that still has the `prisma`
+# devDependency (the leaner prod-deps/runtime stages below don't).
+RUN npm run postinstall --workspace=api
 RUN npm run build --workspace=api
 
 # Separate, production-only install so the runtime image doesn't carry
@@ -39,6 +44,10 @@ FROM node:24-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app/apps/api
 COPY --from=prod-deps /app/node_modules ./node_modules
+# prod-deps installed @prisma/client with scripts skipped, so it has no
+# generated engine/types — bring those in from the build stage, which ran
+# `prisma generate` above.
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/apps/api/dist ./dist
 COPY apps/api/package.json ./package.json
 

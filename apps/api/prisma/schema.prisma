@@ -1,0 +1,129 @@
+// TAPS content data model (TAPS-2.1). Field list matches
+// docs/project-knowledge/05-ARCHITECTURE.md §4 "Core Data Model" for the six
+// content models owned by EPIC 2 (ExamBoard, Post, Syllabus, PastPaper,
+// StudyMaterial, Book). `createdAt`/`updatedAt` audit timestamps are added to
+// every model beyond what §4 lists — see docs/adr/003-content-schema-design.md
+// for that and the other schema decisions (id strategy, delete behavior,
+// indexing) made while translating the architecture doc into a real schema.
+//
+// User, QuizQuestion, QuizAttempt, StudyPlan from the same §4 list belong to
+// EPIC 4/5/7/8 and are intentionally out of scope for this sprint (see
+// docs/architecture/data-model.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ExamBoardType {
+  TEACHING
+  TET
+}
+
+enum PostType {
+  NOTIFICATION
+  ARTICLE
+}
+
+model ExamBoard {
+  id          String        @id @default(cuid())
+  // @unique added in TAPS-2.4: the seed script needs to upsert idempotently
+  // by name (Prisma's `upsert` only accepts unique/id fields in `where`),
+  // and two exam boards sharing a name would be a genuine data-integrity
+  // bug regardless of seeding — see docs/architecture/data-model.md.
+  name        String        @unique
+  type        ExamBoardType
+  description String        @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  posts      Post[]
+  syllabuses Syllabus[]
+  pastPapers PastPaper[]
+
+  @@map("exam_boards")
+}
+
+model Post {
+  id          String     @id @default(cuid())
+  examBoardId String?
+  examBoard   ExamBoard? @relation(fields: [examBoardId], references: [id], onDelete: SetNull)
+  type        PostType
+  title       String
+  slug        String     @unique
+  body        String     @db.Text
+  heroImage   String?
+  publishedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // slug's uniqueness above already indexes it; examBoardId is indexed
+  // separately since it's an optional FK many posts will filter/join on.
+  @@index([examBoardId])
+  @@map("posts")
+}
+
+model Syllabus {
+  id          String    @id @default(cuid())
+  examBoardId String
+  examBoard   ExamBoard @relation(fields: [examBoardId], references: [id], onDelete: Restrict)
+  subject     String
+  topics      String[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([examBoardId])
+  @@index([subject])
+  @@map("syllabuses")
+}
+
+model PastPaper {
+  id          String    @id @default(cuid())
+  examBoardId String
+  examBoard   ExamBoard @relation(fields: [examBoardId], references: [id], onDelete: Restrict)
+  subject     String
+  year        Int
+  fileUrl     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([examBoardId])
+  @@index([subject])
+  @@index([year])
+  // Composite index for the natural admin/user browse pattern (a board's
+  // papers filtered by subject and year together) — see the ADR.
+  @@index([examBoardId, subject, year])
+  @@map("past_papers")
+}
+
+model StudyMaterial {
+  id        String   @id @default(cuid())
+  subject   String
+  title     String
+  fileUrl   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // No examBoardId per 05-ARCHITECTURE.md §4 — study material is organized
+  // by subject only, not tied to a specific exam board.
+  @@index([subject])
+  @@map("study_materials")
+}
+
+model Book {
+  id        String   @id @default(cuid())
+  class     String
+  subject   String
+  title     String
+  fileUrl   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subject])
+  @@index([class])
+  @@map("books")
+}
