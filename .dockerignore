@@ -1,0 +1,15 @@
+# apps/api/Dockerfile's build context is the repo root (npm workspaces need
+# every workspace's package.json — see the Dockerfile's header comment), so
+# this file lives at the repo root too. Without it, `docker build`/`fly
+# deploy` would upload every workspace's node_modules (hundreds of MB) as
+# build context on every run.
+**/node_modules
+**/.next
+**/.expo
+**/dist
+**/build
+**/coverage
+**/*.tsbuildinfo
+.git
+.github
+.vscode
