@@ -1,4 +1,4 @@
-import { getExamBoardsForNav } from './api';
+import { getExamBoard, getExamBoardsForNav, getPostsByExamBoard } from './api';
 
 describe('getExamBoardsForNav', () => {
   const originalFetch = global.fetch;
@@ -33,5 +33,56 @@ describe('getExamBoardsForNav', () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
 
     await expect(getExamBoardsForNav()).resolves.toEqual([]);
+  });
+});
+
+describe('getExamBoard', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('returns the exam board on success', async () => {
+    const board = { id: '1', name: 'DSSSB' };
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(board),
+    }) as unknown as typeof fetch;
+
+    await expect(getExamBoard('1')).resolves.toEqual(board);
+  });
+
+  it('returns null (not a throw) on a 404 — the caller turns this into notFound()', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 }) as unknown as typeof fetch;
+
+    await expect(getExamBoard('missing')).resolves.toBeNull();
+  });
+
+  it('throws (does NOT fail soft) on a real error — unlike getExamBoardsForNav, this page depends on the fetch succeeding', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+
+    await expect(getExamBoard('1')).rejects.toThrow();
+  });
+});
+
+describe('getPostsByExamBoard', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('requests the examBoardId-filtered posts endpoint and returns the data array', async () => {
+    const posts = [{ id: '1', title: 'Notification' }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: posts, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getPostsByExamBoard('board-1')).resolves.toEqual(posts);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/posts?examBoardId=board-1');
   });
 });
