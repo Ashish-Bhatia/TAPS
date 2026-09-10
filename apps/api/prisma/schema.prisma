@@ -45,6 +45,13 @@ model ExamBoard {
   syllabuses Syllabus[]
   pastPapers PastPaper[]
 
+  // Generated column (name + description), populated by Postgres itself —
+  // Prisma can't model tsvector natively, so this is declared Unsupported
+  // (present so schema.prisma accurately describes the real DB shape and
+  // future migrations don't try to drop it) and only ever queried via raw
+  // SQL. See TAPS-3.4 / docs/adr/009-full-text-search.md.
+  searchVector Unsupported("tsvector")?
+
   @@map("exam_boards")
 }
 
@@ -60,6 +67,9 @@ model Post {
   publishedAt DateTime?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  // Generated column (title + body) — see the same note on ExamBoard above.
+  searchVector Unsupported("tsvector")?
 
   // slug's uniqueness above already indexes it; examBoardId is indexed
   // separately since it's an optional FK many posts will filter/join on.
