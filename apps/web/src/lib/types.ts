@@ -35,3 +35,11 @@ export interface Paginated<T> {
   total: number;
   totalPages: number;
 }
+
+export interface SearchResult {
+  type: 'post' | 'exam-board';
+  id: string;
+  title: string;
+  examBoardId: string | null;
+  rank: number;
+}

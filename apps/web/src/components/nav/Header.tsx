@@ -43,6 +43,27 @@ export function Header({ examBoards }: HeaderProps) {
             </li>
           ))}
         </ul>
+
+        {/* Plain GET form — navigates to /search?q=... on submit, no
+            client-side JS/hydration needed (TAPS-3.4). */}
+        <form action="/search" role="search" className="ml-auto flex items-center gap-2 sm:ml-0">
+          <label htmlFor="nav-search" className="sr-only">
+            Search
+          </label>
+          <input
+            id="nav-search"
+            type="search"
+            name="q"
+            placeholder="Search…"
+            className="w-36 rounded-md border border-black/10 bg-transparent px-3 py-1.5 text-sm placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-black/20 sm:w-48 dark:border-white/15 dark:focus:ring-white/20"
+          />
+          <button
+            type="submit"
+            className="rounded-md border border-black/10 px-3 py-1.5 text-sm font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+          >
+            Search
+          </button>
+        </form>
       </nav>
     </header>
   );

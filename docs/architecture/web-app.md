@@ -1,8 +1,9 @@
 # `apps/web` — App Structure & Navigation
 
-Covers `TAPS-3.2` and `TAPS-3.3`. Next.js 16 App Router, `src/app/`. See
-`docs/adr/007-nav-data-sourcing.md` for the navigation data-sourcing decision and
-`docs/adr/008-web-api-fetch-caching.md` for the API fetch caching decision this doc assumes.
+Covers `TAPS-3.2`, `TAPS-3.3`, and `TAPS-3.4`. Next.js 16 App Router, `src/app/`. See
+`docs/adr/007-nav-data-sourcing.md` for the navigation data-sourcing decision,
+`docs/adr/008-web-api-fetch-caching.md` for the API fetch caching decision, and
+`docs/adr/009-full-text-search.md` for the search ranking decision this doc assumes.
 
 ## Layout & navigation
 
@@ -52,7 +53,14 @@ is now server-rendered per-request rather than statically pre-rendered).
   `src/components/ui/ComingSoon.tsx`.
 - `params` is a `Promise` in this Next.js version (breaking change from 14 and earlier) — always
   `await props.params`, and prefer the generated `PageProps<'/route'>`/`LayoutProps<'/route'>`
-  type helpers over hand-written param types.
+  type helpers over hand-written param types. `searchParams` is a `Promise` too (`/search`, below).
+- `/search` (`TAPS-3.4`): reads `?q=` from `searchParams`, calls the search API
+  (`docs/api/public-content.md`, ranking explained in `docs/adr/009-full-text-search.md`). The
+  nav's search box (`Header.tsx`) is a plain `<form action="/search" role="search">` — a GET
+  submit that navigates the browser, no client JS/hydration needed, same philosophy as the
+  `<details>` dropdowns. A search result for a `Post` links to its parent `ExamBoard`'s hub page
+  (where the post already appears — `TAPS-3.3`) rather than a dedicated post-detail page, which
+  doesn't exist in `apps/web` yet.
 
 ## Environment
 

@@ -1,4 +1,4 @@
-import type { ExamBoard, Paginated, Post } from './types';
+import type { ExamBoard, Paginated, Post, SearchResult } from './types';
 
 // Same var read both server- and client-side: it's a public base URL, not a
 // secret, so there's no downside to the NEXT_PUBLIC_ prefix exposing it to
@@ -75,4 +75,13 @@ export async function getPostsByExamBoard(examBoardId: string): Promise<Post[]> 
     `/public/posts?examBoardId=${examBoardId}&pageSize=100`,
   );
   return page.data;
+}
+
+/**
+ * Used by the search page (TAPS-3.4). Like getExamBoard, does NOT fail
+ * soft — the search page's entire purpose is this fetch's result, so a
+ * real API error should surface as a real error.
+ */
+export async function search(q: string): Promise<Paginated<SearchResult>> {
+  return apiFetch<Paginated<SearchResult>>(`/public/search?q=${encodeURIComponent(q)}`);
 }
