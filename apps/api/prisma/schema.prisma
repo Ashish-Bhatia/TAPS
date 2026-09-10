@@ -31,7 +31,11 @@ enum PostType {
 
 model ExamBoard {
   id          String        @id @default(cuid())
-  name        String
+  // @unique added in TAPS-2.4: the seed script needs to upsert idempotently
+  // by name (Prisma's `upsert` only accepts unique/id fields in `where`),
+  // and two exam boards sharing a name would be a genuine data-integrity
+  // bug regardless of seeding — see docs/architecture/data-model.md.
+  name        String        @unique
   type        ExamBoardType
   description String        @db.Text
   createdAt   DateTime      @default(now())

@@ -16,7 +16,7 @@ stories that actually need them.
 
 | Model           | Key fields                                                                                           | Relations                                |
 | --------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `ExamBoard`     | `name`, `type` (`TEACHING` \| `TET`), `description`                                                  | has many `Post`, `Syllabus`, `PastPaper` |
+| `ExamBoard`     | `name` (unique), `type` (`TEACHING` \| `TET`), `description`                                         | has many `Post`, `Syllabus`, `PastPaper` |
 | `Post`          | `type` (`NOTIFICATION` \| `ARTICLE`), `title`, `slug` (unique), `body`, `heroImage?`, `publishedAt?` | belongs to `ExamBoard` (**optional**)    |
 | `Syllabus`      | `subject`, `topics` (`String[]`)                                                                     | belongs to `ExamBoard` (required)        |
 | `PastPaper`     | `subject`, `year`, `fileUrl`                                                                         | belongs to `ExamBoard` (required)        |
@@ -26,7 +26,9 @@ stories that actually need them.
 Every model also has `id` (`String`, `cuid()`), `createdAt`, and `updatedAt` — see
 `docs/adr/004-content-schema-design.md` for why, along with the id strategy, the indexing choices,
 and the per-relation `onDelete` behavior (`SetNull` for `Post`'s optional exam-board link,
-`Restrict` for `Syllabus`/`PastPaper`'s required ones).
+`Restrict` for `Syllabus`/`PastPaper`'s required ones). `ExamBoard.name` became unique in
+`TAPS-2.4`, added so the seed script (`docs/runbooks/database-seeding.md`) could `upsert`
+idempotently by name — two exam boards sharing a name would be a data-integrity bug regardless.
 
 ## Indexes
 
@@ -41,7 +43,10 @@ year browse pattern. Full rationale in `docs/adr/004-content-schema-design.md`.
 against the real Neon database as part of `TAPS-2.2` — see
 `docs/runbooks/database-migrations.md` for how to run migrations against Neon going forward, and
 `docs/adr/003-prisma-orm-and-connection-strategy.md` for the Prisma version and connection-
-handling decisions made while wiring it up.
+handling decisions made while wiring it up. `..._examboard_name_unique` (`TAPS-2.4`) added the
+`ExamBoard.name` unique constraint above; it was generated with `prisma migrate diff` and applied
+with `prisma migrate deploy` rather than `prisma migrate dev`, which refuses to run in this
+non-interactive environment (see the runbook).
 
 ## Diagram
 
