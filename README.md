@@ -43,5 +43,3 @@ deploy steps: `docs/runbooks/deploy-api.md`. Web/mobile deploy targets aren't se
 
 Branching, commit format, PR checklist, and coding standards: `docs/project-knowledge/06-CODING-STANDARDS.md`.
 Documentation requirements (what must be written, and when): `docs/project-knowledge/07-DOCUMENTATION-STANDARDS.md`.
-protection test Thu Sep 10 00:38:56 UTC 2026
-test
