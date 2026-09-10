@@ -1,0 +1,30 @@
+# fly.toml — apps/api
+#
+# Placeholder app name; founder must confirm or rename before the first real
+# deploy (`fly apps create <name>` / update `app` below to match). Build
+# context must be the repo root — see docs/runbooks/deploy-api.md for the
+# exact `fly deploy` command.
+
+app = 'taps-api'
+primary_region = 'iad' # placeholder — founder to confirm nearest region
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = '10s'
+    interval = '15s'
+    timeout = '5s'
+    method = 'GET'
+    path = '/health'
+    protocol = 'http'
+
+[env]
+  PORT = '8080'

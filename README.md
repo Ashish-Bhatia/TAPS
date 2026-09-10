@@ -28,6 +28,12 @@ npm run test --workspaces --if-present   # Vitest (apps/api); more apps get test
 Full setup instructions (prerequisites, pre-commit hook, environment variables):
 `docs/setup/local-development.md`.
 
+## Deployment
+
+`apps/api` ships as a Docker image (`apps/api/Dockerfile`) to Fly.io (`apps/api/fly.toml`);
+deploy steps: `docs/runbooks/deploy-api.md`. Web/mobile deploy targets aren't set up yet
+(`TAPS-1.16` in the backlog).
+
 ## Current sprint
 
 **Sprint 0** — repo scaffold, CI/CD, environment config, architecture skeleton (per
