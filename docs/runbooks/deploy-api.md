@@ -42,6 +42,24 @@ fly status --config apps/api/fly.toml
 curl https://<app-name>.fly.dev/health   # expect {"status":"ok"}
 ```
 
+## CORS Configuration (TAPS-1.16)
+
+- `ALLOWED_ORIGIN` on the `taps-api` Fly app is set to `https://taps-web-eta.vercel.app`
+  (**no trailing slash**). `apps/api/src/main.ts` passes this value straight into NestJS's
+  `app.enableCors({ origin: ... })`, which sends it back as a fixed `Access-Control-Allow-Origin`
+  header on every response — it is not a dynamic allowlist that checks the incoming `Origin`
+  header, so the env var's exact string (scheme, host, no path, no trailing slash) is what the
+  browser compares against the page's own origin.
+- `https://taps-web-eta.vercel.app` is the **Vercel Production** URL for `apps/web`, and Vercel is
+  configured so Production only builds/deploys on pushes to `main` (Preview deployments on other
+  branches/PRs get their own, different, unlisted-in-CORS URLs and won't pass this check).
+- Verify the header is present and matches exactly:
+  ```bash
+  curl -sI -H "Origin: https://taps-web-eta.vercel.app" https://taps-api.fly.dev/health \
+    | grep -i access-control-allow-origin
+  # expect: access-control-allow-origin: https://taps-web-eta.vercel.app
+  ```
+
 ## Rollback
 
 ```bash
