@@ -1,15 +1,24 @@
 # fly.toml — apps/api
 #
-# Placeholder app name; founder must confirm or rename before the first real
-# deploy (`fly apps create <name>` / update `app` below to match). Build
-# context must be the repo root — see docs/runbooks/deploy-api.md for the
-# exact `fly deploy` command.
+# Deployed to Fly.io. Primary region: Singapore (sin) — chosen as the closest
+# available Fly platform region to Delhi (Mumbai/bom is not on the current
+# platform region list; see docs/adr/ for region selection notes if one exists).
+# VM sized deliberately small (256MB, 1 machine) for a zero-budget, pre-launch
+# project with no live traffic — do not scale up without a deliberate cost
+# decision; see Fly billing dashboard before increasing.
+#
+# Deploy from repo root, not from apps/api/, with explicit config/dockerfile
+# flags (Vercel/Fly monorepo build-context quirk):
+#   fly deploy --config apps/api/fly.toml --dockerfile apps/api/Dockerfile .
 
 app = 'taps-api'
-primary_region = 'iad' # placeholder — founder to confirm nearest region
+primary_region = 'sin'
 
 [build]
   dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '8080'
 
 [http_service]
   internal_port = 8080
@@ -19,12 +28,13 @@ primary_region = 'iad' # placeholder — founder to confirm nearest region
   min_machines_running = 0
 
   [[http_service.checks]]
-    grace_period = '10s'
     interval = '15s'
     timeout = '5s'
+    grace_period = '10s'
     method = 'GET'
     path = '/health'
     protocol = 'http'
 
-[env]
-  PORT = '8080'
+[[vm]]
+  memory = '256mb'
+  cpus = 1
