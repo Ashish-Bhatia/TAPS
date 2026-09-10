@@ -15,9 +15,11 @@ image and `fly.toml` are in place; the steps below are founder-only account/plat
 3. Create the app on Fly (first deploy only): `fly apps create <name>` (skip if step 2 already
    created it).
 4. Set production secrets on Fly (never commit real values — see `apps/api/.env.example` for the
-   full list):
+   full list, including how to generate `JWT_SECRET` and `ADMIN_PASSWORD_HASH`, added in
+   `TAPS-2.3` — see `docs/adr/005-admin-auth-and-validation.md`):
    ```bash
    fly secrets set DATABASE_URL=... ANTHROPIC_API_KEY=... ALLOWED_ORIGIN=https://<web-app-domain> \
+     JWT_SECRET=... ADMIN_PASSWORD_HASH=... \
      --config apps/api/fly.toml
    ```
 
