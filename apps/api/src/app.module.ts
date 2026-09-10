@@ -9,6 +9,7 @@ import { ExamBoardModule } from './exam-board/exam-board.module.js';
 import { HealthController } from './health/health.controller.js';
 import { PostModule } from './post/post.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { PublicContentModule } from './public-content/public-content.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -25,6 +26,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     AuthModule,
     ExamBoardModule,
     PostModule,
+    PublicContentModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService, { provide: APP_FILTER, useClass: PrismaExceptionFilter }],
