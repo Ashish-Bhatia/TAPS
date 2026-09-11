@@ -116,6 +116,13 @@ export class OpenAIQuizProvider implements QuizGenerationProvider {
 // malformed request — this regex is the only currently-reliable signal.
 const CREDIT_BALANCE_MESSAGE = /credit balance/i;
 
+// Standalone-function logger (the two provider classes above each carry
+// their own instance logger; `isAnthropicFallbackEligible` is a plain
+// exported function, so it gets a module-level one instead), used solely
+// for the monitoring warning below — it never affects the classifier's
+// return value or the fallback policy itself.
+const logger = new Logger('isAnthropicFallbackEligible');
+
 /**
  * Whether an Anthropic failure is eligible for a same-request OpenAI
  * fallback, per `docs/adr/012-ai-provider-fallback.md`'s exact policy table:
@@ -150,5 +157,21 @@ export function isAnthropicFallbackEligible(cause: unknown): boolean {
   if (cause.status === 429) {
     return true;
   }
-  return typeof cause.status === 'number' && cause.status >= 500;
+  if (typeof cause.status === 'number' && cause.status >= 500) {
+    return true;
+  }
+  if (cause.status === 400 && cause.type === 'invalid_request_error') {
+    // Monitoring safety net only: if Anthropic ever changes the
+    // credit-balance message's wording, CREDIT_BALANCE_MESSAGE stops
+    // matching and this 400 silently (and correctly, per the documented
+    // policy above) falls through to `return false` below — but that would
+    // also mean genuine credit-balance failures stop getting an OpenAI
+    // fallback. Logging every unrecognized 400 invalid_request_error here
+    // makes that regression visible instead of silent. This must never
+    // change the return value or the fallback policy.
+    logger.warn(
+      `Unrecognized Anthropic 400 invalid_request_error, not classified as credit-balance fallback-eligible: ${cause.message}`,
+    );
+  }
+  return false;
 }

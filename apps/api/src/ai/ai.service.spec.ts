@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AIProvider, ExtractionStatus } from '@prisma/client';
 import Anthropic, { APIError } from '@anthropic-ai/sdk';
@@ -10,6 +10,7 @@ import {
   PastPaperNotExtractedError,
 } from './ai.errors.js';
 import { AIService } from './ai.service.js';
+import { isAnthropicFallbackEligible } from './ai.providers.js';
 
 // The Anthropic and OpenAI clients are both mocked throughout this file —
 // every test here covers the parse/validation/persistence/fallback logic
@@ -271,6 +272,28 @@ describe('AIService', () => {
         AIQuizGenerationError,
       );
       expect(openaiCreateMock).not.toHaveBeenCalled();
+    });
+
+    // Monitoring safety net (not a policy change): an unrecognized 400
+    // invalid_request_error message must still classify as NOT
+    // fallback-eligible (covered above), but should now also log a warning
+    // naming the exact message, so a future wording change on Anthropic's
+    // side to the credit-balance message is visible rather than silently
+    // mis-classified.
+    it('logs a warning for an unrecognized 400 invalid_request_error message, without changing eligibility', () => {
+      const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const error = anthropicApiError(
+        400,
+        'invalid_request_error',
+        'messages: at least one message is required',
+      );
+
+      const eligible = isAnthropicFallbackEligible(error);
+
+      expect(eligible).toBe(false);
+      expect(warnSpy).toHaveBeenCalledWith(
+        `Unrecognized Anthropic 400 invalid_request_error, not classified as credit-balance fallback-eligible: ${error.message}`,
+      );
     });
 
     // Branch 2c (regression, TAPS-4.1's unchanged contract): a
