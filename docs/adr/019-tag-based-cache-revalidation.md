@@ -82,3 +82,31 @@ documented rather than built around (loop-prevention rule 3).
   HTTP response returns, so a slow/unreachable `apps/web` measurably slows (not breaks) an admin
   write. Acceptable for this stage's traffic; revisit (e.g. fire-and-forget without awaiting) if
   it becomes a real latency problem.
+
+## Verification — live, not mocked
+
+The committed test suite (both apps) is entirely unit-level: fetch mocked, `revalidateTag` mocked,
+Prisma mocked. `docs/adr/008-web-api-fetch-caching.md`'s own bug was explicitly **not** caught by
+tests at that level — only a live reproduction found it — so mocked coverage alone isn't enough
+evidence that `force-cache` + `next.tags` + `revalidateTag` actually behaves as documented on this
+installed Next.js 16.3.4. Before recommending this PR for merge, the real mechanism was exercised
+end-to-end against a real running server, no mocks:
+
+1. Built `apps/web` with `next build` (production mode — dev mode's caching semantics differ) and
+   ran it with `next start`, `NEXT_PUBLIC_API_URL` pointed at a throwaway local HTTP server that
+   serves `/public/exam-boards` and counts how many times it's actually hit.
+2. Requested `/` (which renders via `getExamBoardsForNav`, tagged `exam-boards`) twice. Upstream
+   hit count stayed at **1** across both requests — real proof `force-cache` + `next.tags` actually
+   caches on this Next.js version, not just that the code compiles.
+3. `POST /api/revalidate` with the real secret and `{"tags":["exam-boards"]}` — got back
+   `{"revalidated":true,"tags":["exam-boards"]}`.
+4. Requested `/` again: upstream hit count went **1 → 2**, exactly at that request — real proof
+   `revalidateTag(tag, { expire: 0 })` genuinely invalidates the cache entry the tag was attached
+   to, closing the specific gap ADR-008's bug exposed (a caching mechanism that looked correct in
+   code but wasn't, in this framework's actual behavior).
+5. Auth boundary checked live too: `POST /api/revalidate` with a wrong secret → real `401`, and the
+   cache stayed warm (hit count unchanged) — a rejected call doesn't accidentally poison or refetch
+   anything.
+
+Throwaway build artifacts and the local test servers were discarded after — this section is the
+evidence trail, not a reproducible test (the committed, mocked unit tests are what CI runs).
