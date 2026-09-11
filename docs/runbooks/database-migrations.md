@@ -2,8 +2,9 @@
 
 Covers `TAPS-2.2`. `apps/api` uses Prisma (see `docs/architecture/data-model.md` for the schema
 and `docs/adr/003-prisma-orm-and-connection-strategy.md` for the version/connection decisions).
-This is the manual process for applying schema changes to the real Neon database — there is no
-automated migrate-on-deploy step yet (see "Not yet automated" below).
+This is the manual process for applying schema changes to the real Neon database, still useful for
+the local/dev flow and as a fallback — migrations now also apply automatically on deploy (see
+"Automated on deploy (TAPS-2.6)" below).
 
 ## Prerequisites
 
@@ -112,11 +113,19 @@ This is exactly what was run to verify `TAPS-2.2`: the first migration
 create → read → delete round trip against the `exam_boards` table succeeded and the temporary row
 was cleaned up (no residue left in the database from the verification).
 
-## Not yet automated
+## Automated on deploy (TAPS-2.6)
 
-Migrations are **not** run automatically on `fly deploy` — there is no `release_command` in
-`apps/api/fly.toml` wired to `prisma migrate deploy`. For this sprint's scope, that's a deliberate
-manual step (this runbook), not an oversight; automating it is tracked as a follow-up backlog item
-rather than bundled into this story (see `docs/backlog/BACKLOG.md`), since it's a separate
-decision (what should happen if a migration fails mid-deploy, whether it blocks traffic cutover,
-etc.) that deserves its own scoped story rather than a silent addition here.
+As of `TAPS-2.6`, `apps/api/fly.toml`'s `[deploy]` section wires
+`release_command = 'npx prisma migrate deploy'`. Fly runs this in a temporary machine built from
+the same image being deployed, with full access to the app's secrets (including `DATABASE_URL`),
+_before_ the new version's machines start taking traffic; a non-zero exit aborts the deploy. See
+`docs/adr/020-migrate-deploy-release-command.md` for the design (including the trade-off of
+shipping the `prisma` CLI to the production image so the release machine can run it) and the real,
+non-mocked verification performed against the live `taps-api` app and the real Neon database.
+
+**Practical effect:** once a migration's `migration.sql` is committed and the PR reaches a real
+deploy (merge to `main`, per `TAPS-1.22`'s pipeline), it applies automatically — the manual
+`prisma migrate deploy` step above is no longer required for the normal path. It remains useful as
+a manual fallback (e.g. applying a migration ahead of a deploy to check it cleanly, or recovering
+from the failed-migration scenarios documented above) and for the local/dev flow, which was never
+part of what TAPS-2.6 automates.
