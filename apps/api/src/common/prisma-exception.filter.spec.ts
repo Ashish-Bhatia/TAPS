@@ -54,10 +54,33 @@ describe('PrismaExceptionFilter', () => {
     });
   });
 
-  it('falls back to 500 for an unmapped Prisma error code', () => {
+  it('maps P2003 (foreign key constraint violation) to 409', () => {
+    const { host, response } = makeHost();
+
+    filter.catch(makeError('P2003', { field_name: 'Syllabus_examBoardId_fkey (index)' }), host);
+
+    expect(response.status).toHaveBeenCalledWith(409);
+    expect(response.json).toHaveBeenCalledWith({
+      statusCode: 409,
+      message: 'Cannot delete or update this resource: other records still reference it',
+    });
+  });
+
+  it('maps P2003 to 409 even when meta.field_name is missing', () => {
+    // Real-world Prisma behavior: field_name isn't always populated depending
+    // on the connector (prisma/prisma#24293) — the filter must not depend on
+    // it being present.
     const { host, response } = makeHost();
 
     filter.catch(makeError('P2003'), host);
+
+    expect(response.status).toHaveBeenCalledWith(409);
+  });
+
+  it('falls back to 500 for an unmapped Prisma error code', () => {
+    const { host, response } = makeHost();
+
+    filter.catch(makeError('P2001'), host);
 
     expect(response.status).toHaveBeenCalledWith(500);
   });
