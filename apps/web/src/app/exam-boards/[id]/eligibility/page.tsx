@@ -22,7 +22,8 @@ export default async function EligibilityPage(props: PageProps<'/exam-boards/[id
     <ExamBoardSubPage
       examBoardId={id}
       title="Eligibility"
-      note="Published eligibility-criteria articles for this board. Eligibility has no dedicated data model yet, so this list is the board's published articles generally — see the backlog (TAPS-3.8) for giving it a real category."
+      category="eligibility"
+      note="Published eligibility-criteria posts for this board, filtered by Post.category (TAPS-3.8). Requires an admin to have actually tagged posts with the &ldquo;eligibility&rdquo; category — until then this list may be empty even if the board has other published posts."
     />
   );
 }

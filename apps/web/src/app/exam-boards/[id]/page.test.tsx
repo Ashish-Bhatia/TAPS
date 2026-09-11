@@ -22,24 +22,26 @@ function params(id: string) {
 }
 
 describe('ExamBoardHubPage', () => {
-  it('links Exam Pattern and Eligibility to their board-specific pages (TAPS-3.6), and the rest to the generic placeholders', async () => {
+  it('links all five sub-sections to their board-specific pages (TAPS-3.6)', async () => {
     vi.mocked(getExamBoard).mockResolvedValue(examBoard);
     vi.mocked(getPostsByExamBoard).mockResolvedValue([]);
 
     render(await ExamBoardHubPage(params('board-1')));
 
+    expect(screen.getByRole('link', { name: 'Syllabus' }).getAttribute('href')).toBe(
+      '/exam-boards/board-1/syllabus',
+    );
     expect(screen.getByRole('link', { name: 'Exam Pattern' }).getAttribute('href')).toBe(
       '/exam-boards/board-1/exam-pattern',
     );
-    expect(screen.getByRole('link', { name: 'Eligibility' }).getAttribute('href')).toBe(
-      '/exam-boards/board-1/eligibility',
-    );
-    expect(screen.getByRole('link', { name: 'Syllabus' }).getAttribute('href')).toBe('/syllabus');
     expect(screen.getByRole('link', { name: 'Previous Papers' }).getAttribute('href')).toBe(
-      '/previous-papers',
+      '/exam-boards/board-1/previous-papers',
     );
     expect(screen.getByRole('link', { name: 'Study Material' }).getAttribute('href')).toBe(
-      '/study-materials',
+      '/exam-boards/board-1/study-materials',
+    );
+    expect(screen.getByRole('link', { name: 'Eligibility' }).getAttribute('href')).toBe(
+      '/exam-boards/board-1/eligibility',
     );
   });
 

@@ -26,6 +26,7 @@ function post(overrides: Partial<Post>): Post {
     id: 'id',
     examBoardId: 'board-1',
     type: 'ARTICLE',
+    category: null,
     title: 'title',
     slug: 'slug',
     body: 'body',
@@ -38,30 +39,30 @@ function post(overrides: Partial<Post>): Post {
 }
 
 describe('ExamBoardSubPage', () => {
-  it('renders the board breadcrumb, page title/note, and only ARTICLE-type posts', async () => {
+  it('renders the board breadcrumb, page title/note, and passes category through to getPostsByExamBoard', async () => {
     vi.mocked(getExamBoard).mockResolvedValue(examBoard);
     vi.mocked(getPostsByExamBoard).mockResolvedValue([
-      post({ id: 'notif-1', type: 'NOTIFICATION', title: 'A notification' }),
-      post({ id: 'article-1', type: 'ARTICLE', title: 'An article' }),
+      post({ id: 'pattern-1', category: 'exam-pattern', title: 'A pattern post' }),
     ]);
 
     const element = await ExamBoardSubPage({
       examBoardId: 'board-1',
       title: 'Exam Pattern',
       note: 'Some note',
+      category: 'exam-pattern',
     });
     render(element);
 
+    expect(getPostsByExamBoard).toHaveBeenCalledWith('board-1', 'exam-pattern');
     expect(screen.getByRole('link', { name: /DSSSB/ }).getAttribute('href')).toBe(
       '/exam-boards/board-1',
     );
     expect(screen.getByRole('heading', { name: 'Exam Pattern' })).toBeTruthy();
     expect(screen.getByText('Some note')).toBeTruthy();
-    expect(screen.getByText('An article')).toBeTruthy();
-    expect(screen.queryByText('A notification')).toBeNull();
+    expect(screen.getByText('A pattern post')).toBeTruthy();
   });
 
-  it('renders an empty-state message when the board has no articles', async () => {
+  it('renders an empty-state message when the board has no matching posts', async () => {
     vi.mocked(getExamBoard).mockResolvedValue(examBoard);
     vi.mocked(getPostsByExamBoard).mockResolvedValue([]);
 
@@ -69,17 +70,23 @@ describe('ExamBoardSubPage', () => {
       examBoardId: 'board-1',
       title: 'Eligibility',
       note: 'Some note',
+      category: 'eligibility',
     });
     render(element);
 
-    expect(screen.getByText(/No articles published for DSSSB yet/)).toBeTruthy();
+    expect(screen.getByText(/No eligibility content published for DSSSB yet/)).toBeTruthy();
   });
 
   it('propagates notFound() when the exam board does not exist', async () => {
     vi.mocked(getExamBoard).mockResolvedValue(null);
 
     await expect(
-      ExamBoardSubPage({ examBoardId: 'missing', title: 'Eligibility', note: 'Some note' }),
+      ExamBoardSubPage({
+        examBoardId: 'missing',
+        title: 'Eligibility',
+        note: 'Some note',
+        category: 'eligibility',
+      }),
     ).rejects.toThrow();
   });
 });

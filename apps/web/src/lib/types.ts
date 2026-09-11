@@ -19,11 +19,48 @@ export interface Post {
   id: string;
   examBoardId: string | null;
   type: 'NOTIFICATION' | 'ARTICLE';
+  // Free-form, nullable classification (TAPS-3.8) — e.g. "exam-pattern",
+  // "eligibility" — see the public posts endpoint's `category` filter in
+  // docs/api/public-content.md.
+  category: string | null;
   title: string;
   slug: string;
   body: string;
   heroImage: string | null;
   publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Syllabus/PastPaper/StudyMaterial (TAPS-3.8's public endpoints, TAPS-3.6's
+// /exam-boards/[id]/syllabus, /previous-papers, /study-materials pages).
+
+export interface Syllabus {
+  id: string;
+  examBoardId: string;
+  subject: string;
+  topics: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PastPaper {
+  id: string;
+  examBoardId: string;
+  subject: string;
+  year: number;
+  fileUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// No examBoardId — StudyMaterial is organized by subject only, not tied to
+// a specific exam board (docs/adr/013-post-category-field-and-content-endpoints.md).
+export interface StudyMaterial {
+  id: string;
+  subject: string;
+  title: string;
+  fileUrl: string;
   createdAt: string;
   updatedAt: string;
 }
