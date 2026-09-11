@@ -6,3 +6,9 @@ build
 coverage
 package-lock.json
 *.min.js
+
+# Next.js-generated, gitignored per-app (apps/web/.gitignore) but not covered by
+# prettier's default ignore resolution (it only reads the root .gitignore, not
+# nested ones) — spuriously fails `format:check` after any local `next dev`/
+# `next build` regenerates it. TAPS-1.17.
+**/next-env.d.ts
