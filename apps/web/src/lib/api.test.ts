@@ -1,4 +1,11 @@
-import { getExamBoard, getExamBoardsForNav, getPostsByExamBoard, search } from './api';
+import {
+  filterArticles,
+  getExamBoard,
+  getExamBoardsForNav,
+  getPostsByExamBoard,
+  search,
+} from './api';
+import type { Post } from './types';
 
 describe('getExamBoardsForNav', () => {
   const originalFetch = global.fetch;
@@ -84,6 +91,35 @@ describe('getPostsByExamBoard', () => {
 
     await expect(getPostsByExamBoard('board-1')).resolves.toEqual(posts);
     expect(fetchMock.mock.calls[0][0]).toContain('/public/posts?examBoardId=board-1');
+  });
+});
+
+describe('filterArticles', () => {
+  function post(overrides: Partial<Post>): Post {
+    return {
+      id: 'id',
+      examBoardId: 'board-1',
+      type: 'ARTICLE',
+      title: 'title',
+      slug: 'slug',
+      body: 'body',
+      heroImage: null,
+      publishedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      ...overrides,
+    };
+  }
+
+  it('keeps only ARTICLE-type posts, dropping NOTIFICATION ones', () => {
+    const notification = post({ id: '1', type: 'NOTIFICATION' });
+    const article = post({ id: '2', type: 'ARTICLE' });
+
+    expect(filterArticles([notification, article])).toEqual([article]);
+  });
+
+  it('returns an empty array when there are no articles', () => {
+    expect(filterArticles([post({ type: 'NOTIFICATION' })])).toEqual([]);
   });
 });
 
