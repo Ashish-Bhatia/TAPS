@@ -25,13 +25,18 @@ FROM deps AS build
 COPY apps/api ./apps/api
 # --ignore-scripts above skipped apps/api's "postinstall" (`prisma generate`),
 # so run it explicitly before compiling — the build needs the generated
-# client's types, and it needs to run in a stage that still has the `prisma`
-# devDependency (the leaner prod-deps/runtime stages below don't).
+# client's types.
 RUN npm run postinstall --workspace=api
 RUN npm run build --workspace=api
 
 # Separate, production-only install so the runtime image doesn't carry
-# web/mobile's dependencies or any devDependencies.
+# web/mobile's dependencies or any devDependencies. `prisma` (the CLI, not
+# just `@prisma/client`) is a regular dependency here — TAPS-2.6 wires
+# `prisma migrate deploy` into fly.toml's release_command, which Fly runs
+# against this same runtime image, so the CLI must be present in it. See
+# docs/adr/020-migrate-deploy-release-command.md for the trade-off this
+# reintroduces (the prisma CLI's deepmerge-ts advisory now reaches the
+# production image, where previously it was devDependency-only).
 FROM node:24-slim AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -44,12 +49,17 @@ FROM node:24-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app/apps/api
 COPY --from=prod-deps /app/node_modules ./node_modules
-# prod-deps installed @prisma/client with scripts skipped, so it has no
-# generated engine/types — bring those in from the build stage, which ran
-# `prisma generate` above.
+# prod-deps installed @prisma/client (and now `prisma`) with scripts
+# skipped, so it has no generated engine/types — bring those in from the
+# build stage, which ran `prisma generate` above.
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/apps/api/dist ./dist
 COPY apps/api/package.json ./package.json
+# schema.prisma + prisma/migrations — needed at runtime (not just build
+# time) so the release_command's `prisma migrate deploy` (fly.toml) can
+# find the datasource config and the migrations to apply. No engine
+# binaries live here (those came from node_modules/.prisma above).
+COPY apps/api/prisma ./prisma
 
 EXPOSE 8080
 CMD ["node", "dist/main.js"]

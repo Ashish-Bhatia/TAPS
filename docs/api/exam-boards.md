@@ -7,6 +7,11 @@ backlog — see `docs/backlog/BACKLOG.md`).
 
 All routes: `401 Unauthorized` if the bearer token is missing/invalid/expired.
 
+**Side effect (`TAPS-3.7`):** every successful `POST`/`PATCH`/`DELETE` here revalidates
+`apps/web`'s tagged `exam-boards`/`exam-board-<id>` caches (soft-fails if unconfigured or
+unreachable — never blocks the write itself). See
+`docs/adr/019-tag-based-cache-revalidation.md`.
+
 ## `POST /exam-boards`
 
 - **Body:** `CreateExamBoardDto` — `{ name: string, type: 'TEACHING' | 'TET', description: string }`
@@ -32,10 +37,9 @@ All routes: `401 Unauthorized` if the bearer token is missing/invalid/expired.
 ## `DELETE /exam-boards/:id`
 
 - **Response:** `204 No Content`
-- **Errors:** `404 Not Found` — no exam board with that id
-- Deleting an exam board with attached `Syllabus`/`PastPaper` rows fails at the database level
-  (`onDelete: Restrict`, see `docs/adr/004-content-schema-design.md`) — currently surfaces as a
-  `500` since that specific Prisma error code (`P2003`, foreign key constraint) isn't mapped by
-  `PrismaExceptionFilter` yet (only `P2025`/`P2002` are — see
+- **Errors:** `404 Not Found` — no exam board with that id; `409 Conflict` — the exam board has
+  attached `Syllabus`/`PastPaper` rows (`onDelete: Restrict`, see
+  `docs/adr/004-content-schema-design.md`). This is Prisma's `P2003` (foreign key constraint),
+  mapped by `PrismaExceptionFilter` as of `TAPS-2.10` (previously an unmapped `500` — see
   `docs/adr/005-admin-auth-and-validation.md`). Attached `Post` rows are unaffected
   (`onDelete: SetNull`).

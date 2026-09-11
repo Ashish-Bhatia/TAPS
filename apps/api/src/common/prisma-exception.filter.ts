@@ -5,11 +5,13 @@ import { Prisma } from '@prisma/client';
 /**
  * Translates Prisma's known error codes into the REST errors a client
  * actually expects, instead of NestJS's default 500 for anything unhandled.
- * Only P2025 ("record to update/delete not found" → 404) and P2002
- * (unique constraint violation, e.g. Post.slug → 409) are mapped; any other
- * Prisma error code still 500s, which is correct — an unmapped DB error is
- * an operational problem to investigate, not a client-facing 4xx to paper
- * over. See docs/adr/005-admin-auth-and-validation.md.
+ * P2025 ("record to update/delete not found" → 404), P2002 (unique
+ * constraint violation, e.g. Post.slug → 409), and P2003 (foreign key
+ * constraint violation, e.g. deleting an ExamBoard with attached
+ * Syllabus/PastPaper rows, both onDelete: Restrict → 409) are mapped; any
+ * other Prisma error code still 500s, which is correct — an unmapped DB
+ * error is an operational problem to investigate, not a client-facing 4xx
+ * to paper over. See docs/adr/005-admin-auth-and-validation.md.
  */
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
@@ -29,6 +31,19 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       response.status(HttpStatus.CONFLICT).json({
         statusCode: HttpStatus.CONFLICT,
         message: `A resource with this ${target} already exists`,
+      });
+      return;
+    }
+
+    if (exception.code === 'P2003') {
+      // meta.field_name is Prisma's own name for the failing constraint — in
+      // practice (see prisma/prisma#24293, #16029) it isn't always a clean
+      // column name depending on the connector, so this deliberately doesn't
+      // promise a specific field in the message, just that something still
+      // references this record.
+      response.status(HttpStatus.CONFLICT).json({
+        statusCode: HttpStatus.CONFLICT,
+        message: 'Cannot delete or update this resource: other records still reference it',
       });
       return;
     }

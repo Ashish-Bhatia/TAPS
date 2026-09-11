@@ -7,11 +7,13 @@ import { AuthModule } from './auth/auth.module.js';
 import { PrismaExceptionFilter } from './common/prisma-exception.filter.js';
 import { ExamBoardModule } from './exam-board/exam-board.module.js';
 import { HealthController } from './health/health.controller.js';
+import { ReadinessController } from './health/readiness.controller.js';
 import { PastPaperModule } from './past-paper/past-paper.module.js';
 import { PostModule } from './post/post.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicContentModule } from './public-content/public-content.module.js';
 import { QuizAttemptModule } from './quiz-attempt/quiz-attempt.module.js';
+import { RevalidationModule } from './revalidation/revalidation.module.js';
 import { UserAuthModule } from './user-auth/user-auth.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -26,6 +28,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'api',
     }),
     PrismaModule,
+    RevalidationModule,
     AuthModule,
     ExamBoardModule,
     PostModule,
@@ -34,7 +37,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     UserAuthModule,
     QuizAttemptModule,
   ],
-  controllers: [AppController, HealthController],
+  controllers: [AppController, HealthController, ReadinessController],
   providers: [AppService, { provide: APP_FILTER, useClass: PrismaExceptionFilter }],
 })
 export class AppModule {}
