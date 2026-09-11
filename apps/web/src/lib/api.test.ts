@@ -2,10 +2,12 @@ import {
   getAllStudyMaterials,
   getExamBoard,
   getExamBoardsForNav,
+  getMyQuizAttempts,
   getPastPapersByExamBoard,
   getPostsByExamBoard,
   getSyllabusByExamBoard,
   search,
+  UnauthorizedApiError,
 } from './api';
 
 describe('getExamBoardsForNav', () => {
@@ -197,5 +199,48 @@ describe('search', () => {
 
     await expect(search('teacher eligibility')).resolves.toEqual(page);
     expect(fetchMock.mock.calls[0][0]).toContain('/public/search?q=teacher%20eligibility');
+  });
+});
+
+describe('getMyQuizAttempts (TAPS-5.0.5/TAPS-5.3)', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('forwards the token as a Bearer header and returns the result as-is', async () => {
+    const result = {
+      attempts: [],
+      accuracyTrend: [],
+      weakTopicHeatmap: {},
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(result),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getMyQuizAttempts('jwt-abc')).resolves.toEqual(result);
+    expect(fetchMock.mock.calls[0][0]).toContain('/quiz-attempts/me');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer jwt-abc' },
+    });
+  });
+
+  it('throws UnauthorizedApiError specifically on a 401 (never fails soft)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401 }) as unknown as typeof fetch;
+
+    await expect(getMyQuizAttempts('stale-jwt')).rejects.toThrow(UnauthorizedApiError);
+  });
+
+  it('throws a plain Error on any other non-OK status', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+
+    const error = await getMyQuizAttempts('jwt-abc').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(UnauthorizedApiError);
   });
 });

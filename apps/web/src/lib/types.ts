@@ -73,6 +73,34 @@ export interface Paginated<T> {
   totalPages: number;
 }
 
+// Mirrors apps/api's authenticated shapes (docs/api/user-auth.md,
+// docs/api/quiz-attempts.md) for TAPS-5.0.5/TAPS-5.3's dashboard page.
+// `completedAt` is a string here (JSON over HTTP), unlike apps/api's own
+// `MyQuizAttemptSummary`/`AccuracyTrendPoint` (quiz-attempt.service.ts),
+// which type it as `Date` since that code never round-trips through JSON.
+
+export interface QuizAttemptSummary {
+  id: string;
+  examBoardId: string;
+  score: number;
+  weakTopics: Record<string, number>;
+  completedAt: string;
+}
+
+export interface AccuracyTrendPoint {
+  attemptId: string;
+  completedAt: string;
+  score: number;
+  totalQuestions: number;
+  accuracy: number;
+}
+
+export interface MyQuizAttemptsResult {
+  attempts: QuizAttemptSummary[];
+  accuracyTrend: AccuracyTrendPoint[];
+  weakTopicHeatmap: Record<string, number>;
+}
+
 export interface SearchResult {
   type: 'post' | 'exam-board';
   id: string;

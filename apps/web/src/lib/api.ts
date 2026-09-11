@@ -1,5 +1,6 @@
 import type {
   ExamBoard,
+  MyQuizAttemptsResult,
   Paginated,
   PastPaper,
   Post,
@@ -14,7 +15,11 @@ import type {
 // Falls back to the apps/api dev default (see apps/api/.env.example) so
 // local dev works without an env var set, matching the pattern
 // apps/api/src/main.ts already uses for ALLOWED_ORIGIN.
-function apiUrl(): string {
+// Exported (not just used internally) so the auth route handlers
+// (src/app/api/auth/{login,register}/route.ts, TAPS-5.0.5) can build the
+// same apps/api URL for their own server-to-server login/register calls,
+// rather than duplicating this fallback.
+export function apiUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080';
 }
 
@@ -140,4 +145,53 @@ export async function getAllStudyMaterials(): Promise<StudyMaterial[]> {
  */
 export async function search(q: string): Promise<Paginated<SearchResult>> {
   return apiFetch<Paginated<SearchResult>>(`/public/search?q=${encodeURIComponent(q)}`);
+}
+
+/**
+ * Distinguishes "apps/api rejected the bearer token itself" from any other
+ * failure, so callers (the dashboard page) can tell a stale/expired
+ * session apart from a genuine API outage — see
+ * src/lib/session.ts's `clearSessionAndRedirectToLogin`.
+ */
+export class UnauthorizedApiError extends Error {}
+
+/**
+ * Like `apiFetch`, but for TAPS-5.0.5's authenticated, per-user endpoints:
+ * forwards the session's JWT (read from apps/web's own httpOnly cookie by
+ * the caller, never from a cookie sent to apps/api itself — see ADR
+ * 016-web-session-cookie-strategy.md) as a normal `Authorization: Bearer`
+ * header, exactly as any other client of `UserJwtAuthGuard` would
+ * (docs/api/user-auth.md).
+ *
+ * `cache: 'no-store'`, not `force-cache`/a bare `next.revalidate` — same
+ * reasoning docs/architecture/web-app.md's "Guidance for EPIC 5's upcoming
+ * user-specific dashboard/quiz-attempt pages" already flagged before this
+ * fetch existed: caching a request carrying an `authorization` header
+ * risks Next's persistent fetch cache serving one user's response back to
+ * another.
+ */
+async function apiFetchAuthed<T>(path: string, token: string): Promise<T> {
+  const response = await fetch(`${apiUrl()}${path}`, {
+    cache: 'no-store',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (response.status === 401) {
+    throw new UnauthorizedApiError(`API request failed: 401 ${path}`);
+  }
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status} ${path}`);
+  }
+  return response.json() as Promise<T>;
+}
+
+/**
+ * Used by the progress dashboard page (`TAPS-5.3`'s web half, unblocked by
+ * `TAPS-5.0.5`) — `docs/api/quiz-attempts.md`'s `GET /quiz-attempts/me`.
+ * Does NOT fail soft (unlike `getExamBoardsForNav`): the dashboard's whole
+ * purpose is this data, so a real API error should surface as an error,
+ * and a `401` specifically should send the caller back through
+ * `clearSessionAndRedirectToLogin()` (`UnauthorizedApiError`, above).
+ */
+export async function getMyQuizAttempts(token: string): Promise<MyQuizAttemptsResult> {
+  return apiFetchAuthed<MyQuizAttemptsResult>('/quiz-attempts/me', token);
 }

@@ -49,6 +49,18 @@ bad token — same convention as the admin guard). No endpoint uses `UserJwtAuth
 `TAPS-5.1` — this story is the auth system itself; the first consumer (e.g. a progress dashboard
 or quiz-attempt endpoint) is a future EPIC 5 story.
 
+## Consuming this from `apps/web` (`TAPS-5.0.5`)
+
+`apps/api` (Fly.io) and `apps/web` (Vercel) are different domains, so `apps/web` cannot simply
+call these endpoints from the browser and let a cookie `apps/api` sets do the rest — see
+`docs/adr/016-web-session-cookie-strategy.md` for the full reasoning. Instead, `apps/web`'s own
+Route Handlers (`src/app/api/auth/login/route.ts`, `.../register/route.ts`) call these two
+endpoints server-to-server and set the returned `accessToken` as an httpOnly cookie **on their own
+domain**, then forward it as this same `Authorization: Bearer` header on later authenticated
+requests (`src/lib/api.ts`'s `getMyQuizAttempts`). Nothing above this section changed for
+`TAPS-5.0.5` — both endpoints' request/response shapes are exactly as documented, unmodified since
+`TAPS-5.1`; the existing `{ accessToken: string }` shape already fits this pattern.
+
 ## Verification
 
 Live-verified against the real Neon database with a running server (not just mocked unit tests):
