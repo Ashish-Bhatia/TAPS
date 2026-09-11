@@ -33,7 +33,7 @@ describe('QuizAttemptService', () => {
   const prismaMock = {
     examBoard: { findUnique: vi.fn() },
     quizQuestion: { findMany: vi.fn() },
-    quizAttempt: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    quizAttempt: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn() },
   };
 
   beforeEach(async () => {
@@ -183,6 +183,119 @@ describe('QuizAttemptService', () => {
       expect(updateCall.data.score).toBe(1);
       expect(updateCall.data.weakTopics).toEqual({ Geometry: 1, Algebra: 1 });
       expect(updateCall.data.completedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  describe('getMyAttempts', () => {
+    function makeAttempt(overrides: Record<string, unknown> = {}) {
+      return {
+        id: 'attempt-1',
+        userId: 'user-1',
+        examBoardId: 'board-1',
+        questionIds: ['q-1', 'q-2'],
+        answers: {},
+        score: 1,
+        weakTopics: { Algebra: 1 },
+        completedAt: new Date('2026-01-01T00:00:00Z'),
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        ...overrides,
+      };
+    }
+
+    it('queries only completed attempts for the given user, most recent first', async () => {
+      prismaMock.quizAttempt.findMany.mockResolvedValue([]);
+
+      await service.getMyAttempts('user-1');
+
+      expect(prismaMock.quizAttempt.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1', completedAt: { not: null } },
+        orderBy: { completedAt: 'desc' },
+      });
+    });
+
+    it('returns an empty result for a user with no completed attempts', async () => {
+      prismaMock.quizAttempt.findMany.mockResolvedValue([]);
+
+      const result = await service.getMyAttempts('user-1');
+
+      expect(result).toEqual({ attempts: [], accuracyTrend: [], weakTopicHeatmap: {} });
+    });
+
+    it('maps attempts to summaries (id/examBoardId/score/weakTopics/completedAt) in query order', async () => {
+      const newer = makeAttempt({
+        id: 'attempt-2',
+        completedAt: new Date('2026-01-02T00:00:00Z'),
+      });
+      const older = makeAttempt({
+        id: 'attempt-1',
+        completedAt: new Date('2026-01-01T00:00:00Z'),
+      });
+      // Prisma already returns desc order for `attempts` per the query above.
+      prismaMock.quizAttempt.findMany.mockResolvedValue([newer, older]);
+
+      const result = await service.getMyAttempts('user-1');
+
+      expect(result.attempts).toEqual([
+        {
+          id: 'attempt-2',
+          examBoardId: 'board-1',
+          score: 1,
+          weakTopics: { Algebra: 1 },
+          completedAt: newer.completedAt,
+        },
+        {
+          id: 'attempt-1',
+          examBoardId: 'board-1',
+          score: 1,
+          weakTopics: { Algebra: 1 },
+          completedAt: older.completedAt,
+        },
+      ]);
+    });
+
+    it('builds the accuracy trend oldest-first, independent of the attempts list order', async () => {
+      const newer = makeAttempt({
+        id: 'attempt-2',
+        score: 2,
+        questionIds: ['q-1', 'q-2', 'q-3', 'q-4'],
+        completedAt: new Date('2026-01-02T00:00:00Z'),
+      });
+      const older = makeAttempt({
+        id: 'attempt-1',
+        score: 1,
+        questionIds: ['q-1', 'q-2'],
+        completedAt: new Date('2026-01-01T00:00:00Z'),
+      });
+      prismaMock.quizAttempt.findMany.mockResolvedValue([newer, older]);
+
+      const result = await service.getMyAttempts('user-1');
+
+      expect(result.accuracyTrend).toEqual([
+        {
+          attemptId: 'attempt-1',
+          completedAt: older.completedAt,
+          score: 1,
+          totalQuestions: 2,
+          accuracy: 0.5,
+        },
+        {
+          attemptId: 'attempt-2',
+          completedAt: newer.completedAt,
+          score: 2,
+          totalQuestions: 4,
+          accuracy: 0.5,
+        },
+      ]);
+    });
+
+    it('merges weakTopics across every attempt into one summed heatmap', async () => {
+      const a1 = makeAttempt({ id: 'attempt-1', weakTopics: { Algebra: 2, Geometry: 1 } });
+      const a2 = makeAttempt({ id: 'attempt-2', weakTopics: { Algebra: 1, Trigonometry: 3 } });
+      prismaMock.quizAttempt.findMany.mockResolvedValue([a1, a2]);
+
+      const result = await service.getMyAttempts('user-1');
+
+      expect(result.weakTopicHeatmap).toEqual({ Algebra: 3, Geometry: 1, Trigonometry: 3 });
     });
   });
 });
