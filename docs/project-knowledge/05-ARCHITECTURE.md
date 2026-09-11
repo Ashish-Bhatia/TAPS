@@ -49,6 +49,9 @@
   - Also carries a `searchVector` (`tsvector`) column for full-text search, added by `TAPS-3.4` — see ADR 009.
 - `Syllabus` (id, examBoardId, subject, topics[])
 - `PastPaper` (id, examBoardId, subject, year, fileUrl)
+  - Also carries `extractedText` (nullable) and `extractionStatus` (`PENDING` | `DONE` | `FAILED`),
+    populated by a text-extraction pipeline that runs on create — added by `TAPS-4.0`, see
+    ADR 010.
 - `StudyMaterial` (id, subject, title, fileUrl)
 - `Book` (id, class, subject, title, fileUrl)
 - `User` (id, email, name, examTargets[], createdAt)
