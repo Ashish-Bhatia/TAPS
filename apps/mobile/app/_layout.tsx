@@ -30,6 +30,7 @@ export default function RootLayout() {
       >
         <Stack.Screen name="index" options={{ title: 'Exam Boards' }} />
         <Stack.Screen name="exam-boards/[id]" options={{ title: '' }} />
+        <Stack.Screen name="quiz/[examBoardId]" options={{ title: '', headerRight: undefined }} />
         <Stack.Screen name="account" options={{ title: 'Account', headerRight: undefined }} />
         <Stack.Screen name="login" options={{ title: 'Log in', headerRight: undefined }} />
       </Stack>
