@@ -158,6 +158,44 @@ because the client-side search box (`TAPS-3.4`) calls it directly from the brows
 base URL, not a secret. Falls back to `http://localhost:8080` (the `apps/api` dev default) if
 unset. See `apps/web/.env.example`.
 
+## Progress dashboard (`TAPS-5.3`) — blocked on a missing login-UI story
+
+`TAPS-5.3` was scoped as: build a `/dashboard`-style page reading `apps/api`'s new
+`GET /quiz-attempts/me` (`docs/api/quiz-attempts.md`), gated behind the user being logged in. That
+API endpoint is built (see the doc above) — this section is about the web half, which is **not**
+built, and why.
+
+**The gap:** `apps/web` has no auth surface of any kind yet. A repo-wide search of `apps/web/src`
+for `login`/`session`/`cookie`/`jwt`/`auth` (any case) returns zero matches — no login/register
+page, no session cookie or token storage, no client- or server-side notion of "the current user" at
+all. `TAPS-5.1` built the `POST /user-auth/register`/`POST /user-auth/login` API endpoints and a
+bearer-JWT session model (`docs/api/user-auth.md`), but scoped no `apps/web` UI to call them or
+persist the resulting `accessToken` — its acceptance criteria and testing were entirely
+API-side/`curl`-level. `TAPS-5.2` (quiz attempts) is the same: API-only, no web UI. So by the time
+`TAPS-5.3` starts, there is no way for a real site visitor to ever obtain a session in the first
+place, and therefore no way to reach an authenticated dashboard page — building one now would be
+unreachable dead code that could only ever be exercised by hand-crafting a JWT outside the browser,
+not a working feature.
+
+**What this means concretely for "requires the user to be logged in":** there is no established
+pattern to follow for that requirement — no cookie name, no client-side session hook, no
+server-side "read the session in a Server Component" helper, nothing this story could build on. Any
+one of these would itself be a real design decision (httpOnly cookie set by a Next.js Route Handler
+that proxies `apps/api`'s login response, vs. client-side `localStorage` + a client-only guarded
+page, vs. something else) — exactly the kind of decision this app's existing pages (all
+public/unauthenticated so far) have never had to make, and inventing it as a side effect of the
+dashboard page would mean the actual foundational decision gets made without its own review.
+
+**Resolution:** rather than build a page nothing can reach, `TAPS-5.3` is marked **Blocked** in
+`docs/backlog/BACKLOG.md`, and a new story is filed for the missing piece — `TAPS-5.0.5` ("login
+page + session cookie/token handling" — numbered to slot chronologically before `5.1`, since it's
+logically a prerequisite `TAPS-5.1` needed all along, not new scope `5.3` introduced). `TAPS-5.3`
+stays scoped to the dashboard page and re-opens once `TAPS-5.0.5` gives it something to gate.
+
+The API half (`GET /quiz-attempts/me`) is unaffected by this and is genuinely done — it's a normal
+authenticated endpoint like `POST /quiz-attempts/start`/`submit`, consumable by anything holding a
+valid user JWT (`curl`, a mobile client, or, once `TAPS-5.0.5` lands, this web app).
+
 ## Testing
 
 `apps/web` had no test runner before this story (`TAPS-1.11` tracked this as a gap). Added Vitest,

@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../user-auth/current-user.decorator.js';
 import { UserJwtAuthGuard } from '../user-auth/user-jwt-auth.guard.js';
 // `import type` (not a value import): UserJwtPayload is a pure interface,
@@ -9,7 +18,11 @@ import type { UserJwtPayload } from '../user-auth/user-jwt-payload.interface.js'
 import { StartQuizAttemptDto } from './dto/start-quiz-attempt.dto.js';
 import { SubmitQuizAttemptDto } from './dto/submit-quiz-attempt.dto.js';
 import { QuizAttemptService } from './quiz-attempt.service.js';
-import type { StartQuizAttemptResult, SubmitQuizAttemptResult } from './quiz-attempt.service.js';
+import type {
+  MyQuizAttemptsResult,
+  StartQuizAttemptResult,
+  SubmitQuizAttemptResult,
+} from './quiz-attempt.service.js';
 
 /**
  * End-user quiz-taking endpoints (TAPS-5.2) — guarded by `UserJwtAuthGuard`
@@ -39,5 +52,12 @@ export class QuizAttemptController {
     @Body() dto: SubmitQuizAttemptDto,
   ): Promise<SubmitQuizAttemptResult> {
     return this.quizAttemptService.submit(user.userId, id, dto.answers);
+  }
+
+  // GET, so there's no method-level clash with `:id/submit` (POST) even
+  // though "me" would otherwise look like it could match `:id`.
+  @Get('me')
+  getMine(@CurrentUser() user: UserJwtPayload): Promise<MyQuizAttemptsResult> {
+    return this.quizAttemptService.getMyAttempts(user.userId);
   }
 }

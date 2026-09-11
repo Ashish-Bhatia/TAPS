@@ -8,6 +8,7 @@ describe('QuizAttemptController', () => {
   const serviceMock = {
     start: vi.fn(),
     submit: vi.fn(),
+    getMyAttempts: vi.fn(),
   };
   const user = { userId: 'user-1', email: 'a@example.com' };
 
@@ -41,5 +42,15 @@ describe('QuizAttemptController', () => {
 
     expect(serviceMock.submit).toHaveBeenCalledWith('user-1', 'attempt-1', { 'q-1': 0 });
     expect(result).toEqual(submitted);
+  });
+
+  it('getMine passes the authenticated user id through to the service', async () => {
+    const aggregate = { attempts: [], accuracyTrend: [], weakTopicHeatmap: {} };
+    serviceMock.getMyAttempts.mockResolvedValue(aggregate);
+
+    const result = await controller.getMine(user);
+
+    expect(serviceMock.getMyAttempts).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual(aggregate);
   });
 });

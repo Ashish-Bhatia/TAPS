@@ -43,9 +43,108 @@ export interface SubmitQuizAttemptResult {
   questions: SubmittedQuestionResult[];
 }
 
+// One completed attempt, as listed by getMyAttempts() — deliberately just
+// the fields TAPS-5.3's dashboard needs (id/examBoardId/score/weakTopics/
+// completedAt), not the full QuizAttempt row (questionIds/answers are
+// submission-time detail the dashboard has no use for).
+export interface MyQuizAttemptSummary {
+  id: string;
+  examBoardId: string;
+  score: number;
+  weakTopics: Record<string, number>;
+  completedAt: Date;
+}
+
+// One point on the accuracy-trend line: score/totalQuestions for a single
+// attempt, in the order the attempts were completed (oldest first — see
+// getMyAttempts() doc comment for why this is the opposite order from
+// `attempts`).
+export interface AccuracyTrendPoint {
+  attemptId: string;
+  completedAt: Date;
+  score: number;
+  totalQuestions: number;
+  accuracy: number;
+}
+
+export interface MyQuizAttemptsResult {
+  attempts: MyQuizAttemptSummary[];
+  accuracyTrend: AccuracyTrendPoint[];
+  weakTopicHeatmap: Record<string, number>;
+}
+
 @Injectable()
 export class QuizAttemptService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Read-only aggregation over a user's completed QuizAttempts (TAPS-5.3) —
+   * no new schema, everything here is derived from columns TAPS-5.2 already
+   * writes at submit() time. In-progress attempts (completedAt: null) are
+   * excluded entirely: an unfinished attempt has no score/weakTopics yet, so
+   * it can't contribute to either aggregate below.
+   *
+   * Shape chosen (the simplest correct one for a dashboard, not the only
+   * possible one):
+   * - `attempts`: one row per completed attempt, **most recent first**
+   *   (completedAt desc) — the natural order for "your attempt history".
+   * - `accuracyTrend`: one point per attempt, **oldest first** (completedAt
+   *   asc) — the order a trend/line chart needs to read left-to-right as
+   *   "improving over time"; reusing `attempts`' order would draw the trend
+   *   backwards. `accuracy` is score/totalQuestions (totalQuestions being
+   *   that attempt's questionIds.length, since QuizAttempt has no separate
+   *   total-questions column) — a 0–1 fraction, not a percentage, so the
+   *   caller decides display formatting. totalQuestions is always >= 1 for
+   *   a completed attempt: start() 400s before creating one if the board
+   *   has zero questions.
+   * - `weakTopicHeatmap`: every attempt's `weakTopics` tally (per-topic
+   *   incorrect-answer counts, see QuizAttemptService.submit) summed
+   *   together into one map — a single merged view of "what this user gets
+   *   wrong most, across their whole history", rather than making the
+   *   caller re-merge `attempts[].weakTopics` client-side. Topics with zero
+   *   incorrect answers across every attempt are simply absent, matching
+   *   the per-attempt `weakTopics` convention.
+   */
+  async getMyAttempts(userId: string): Promise<MyQuizAttemptsResult> {
+    const attempts = await this.prisma.quizAttempt.findMany({
+      where: { userId, completedAt: { not: null } },
+      orderBy: { completedAt: 'desc' },
+    });
+
+    const summaries: MyQuizAttemptSummary[] = attempts.map((attempt) => ({
+      id: attempt.id,
+      examBoardId: attempt.examBoardId,
+      // Non-null by construction: submit() always sets score/weakTopics/
+      // completedAt together (quiz-attempt.service.ts submit()), and the
+      // query above only selects attempts with completedAt set.
+      score: attempt.score ?? 0,
+      weakTopics: (attempt.weakTopics as Record<string, number> | null) ?? {},
+      completedAt: attempt.completedAt as Date,
+    }));
+
+    const accuracyTrend: AccuracyTrendPoint[] = [...attempts]
+      .sort((a, b) => (a.completedAt as Date).getTime() - (b.completedAt as Date).getTime())
+      .map((attempt) => {
+        const totalQuestions = attempt.questionIds.length;
+        const score = attempt.score ?? 0;
+        return {
+          attemptId: attempt.id,
+          completedAt: attempt.completedAt as Date,
+          score,
+          totalQuestions,
+          accuracy: totalQuestions === 0 ? 0 : score / totalQuestions,
+        };
+      });
+
+    const weakTopicHeatmap: Record<string, number> = {};
+    for (const summary of summaries) {
+      for (const [topic, count] of Object.entries(summary.weakTopics)) {
+        weakTopicHeatmap[topic] = (weakTopicHeatmap[topic] ?? 0) + count;
+      }
+    }
+
+    return { attempts: summaries, accuracyTrend, weakTopicHeatmap };
+  }
 
   async start(userId: string, examBoardId: string): Promise<StartQuizAttemptResult> {
     const examBoard = await this.prisma.examBoard.findUnique({ where: { id: examBoardId } });
