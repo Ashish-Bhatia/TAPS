@@ -22,7 +22,8 @@ export default async function ExamPatternPage(props: PageProps<'/exam-boards/[id
     <ExamBoardSubPage
       examBoardId={id}
       title="Exam Pattern"
-      note="Published exam-pattern articles for this board. Exam Pattern has no dedicated data model yet, so this list is the board's published articles generally — see the backlog (TAPS-3.8) for giving it a real category."
+      category="exam-pattern"
+      note="Published exam-pattern posts for this board, filtered by Post.category (TAPS-3.8). Requires an admin to have actually tagged posts with the &ldquo;exam-pattern&rdquo; category — until then this list may be empty even if the board has other published posts."
     />
   );
 }

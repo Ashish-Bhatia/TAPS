@@ -1,4 +1,12 @@
-import type { ExamBoard, Paginated, Post, SearchResult } from './types';
+import type {
+  ExamBoard,
+  Paginated,
+  PastPaper,
+  Post,
+  SearchResult,
+  StudyMaterial,
+  Syllabus,
+} from './types';
 
 // Same var read both server- and client-side: it's a public base URL, not a
 // secret, so there's no downside to the NEXT_PUBLIC_ prefix exposing it to
@@ -70,31 +78,59 @@ export async function getExamBoard(id: string): Promise<ExamBoard | null> {
   return response.json() as Promise<ExamBoard>;
 }
 
-export async function getPostsByExamBoard(examBoardId: string): Promise<Post[]> {
-  const page = await apiFetch<Paginated<Post>>(
-    `/public/posts?examBoardId=${examBoardId}&pageSize=100`,
+/**
+ * `category` is optional and additive to `examBoardId` (TAPS-3.8's
+ * `Post.category` filter, docs/api/public-content.md) — used by the exam
+ * hub's Exam Pattern/Eligibility sub-pages (TAPS-3.6) to get genuinely
+ * distinct per-board content instead of the pre-TAPS-3.8 `filterArticles`
+ * client-side type filter (both pages rendered the same `ARTICLE`-typed
+ * list). Omitted entirely by the hub page itself, which wants every post
+ * for a board regardless of category.
+ */
+export async function getPostsByExamBoard(examBoardId: string, category?: string): Promise<Post[]> {
+  const params = new URLSearchParams({ examBoardId, pageSize: '100' });
+  if (category) {
+    params.set('category', category);
+  }
+  const page = await apiFetch<Paginated<Post>>(`/public/posts?${params.toString()}`);
+  return page.data;
+}
+
+/**
+ * Used by the exam hub's Syllabus sub-page (TAPS-3.6/TAPS-3.8).
+ * `examBoardId` is a required filter here (unlike `getPostsByExamBoard`'s
+ * optional one) since every caller of this function is board-scoped.
+ */
+export async function getSyllabusByExamBoard(examBoardId: string): Promise<Syllabus[]> {
+  const page = await apiFetch<Paginated<Syllabus>>(
+    `/public/syllabus?examBoardId=${examBoardId}&pageSize=100`,
   );
   return page.data;
 }
 
 /**
- * Used by the exam hub's Exam Pattern/Eligibility sub-pages (TAPS-3.6).
- * Neither has its own data model — per
- * 03-SOURCE-SITE-CONTENT-INVENTORY.md they were originally just
- * article-type Post content on the source site — and `Post` itself has no
- * category/tag field to split "pattern" articles from "eligibility"
- * articles from any other general article (`PostType` is only
- * `NOTIFICATION | ARTICLE`, see `apps/api/prisma/schema.prisma`). This
- * filters to the closest real distinction available today: a board's
- * `ARTICLE`-type posts, done client-side since `ListPostsQueryDto` (the
- * public posts endpoint) has no `type` query param. Known limitation this
- * leaves: both pages currently render the same set for a given board —
- * filed as `TAPS-3.8` for a real `Post` category to make that split
- * meaningful, alongside the still-missing public API for
- * `Syllabus`/`PastPaper`/`StudyMaterial`.
+ * Used by the exam hub's Previous Papers sub-page (TAPS-3.6/TAPS-3.8).
  */
-export function filterArticles(posts: Post[]): Post[] {
-  return posts.filter((post) => post.type === 'ARTICLE');
+export async function getPastPapersByExamBoard(examBoardId: string): Promise<PastPaper[]> {
+  const page = await apiFetch<Paginated<PastPaper>>(
+    `/public/past-papers?examBoardId=${examBoardId}&pageSize=100`,
+  );
+  return page.data;
+}
+
+/**
+ * Used by the exam hub's Study Material sub-page (TAPS-3.6/TAPS-3.8).
+ * Deliberately NOT board-scoped and takes no `examBoardId` parameter:
+ * `StudyMaterial` has no `examBoardId` field at all (confirmed against the
+ * schema — it's organized by `subject` only, see
+ * docs/adr/013-post-category-field-and-content-endpoints.md), so there is
+ * no real filter to apply here. `/exam-boards/[id]/study-materials`
+ * fetches this same full catalog for every board and says so in its note,
+ * rather than inventing a board relationship the data model doesn't have.
+ */
+export async function getAllStudyMaterials(): Promise<StudyMaterial[]> {
+  const page = await apiFetch<Paginated<StudyMaterial>>('/public/study-materials?pageSize=100');
+  return page.data;
 }
 
 /**

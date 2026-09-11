@@ -1,11 +1,12 @@
 import {
-  filterArticles,
+  getAllStudyMaterials,
   getExamBoard,
   getExamBoardsForNav,
+  getPastPapersByExamBoard,
   getPostsByExamBoard,
+  getSyllabusByExamBoard,
   search,
 } from './api';
-import type { Post } from './types';
 
 describe('getExamBoardsForNav', () => {
   const originalFetch = global.fetch;
@@ -91,35 +92,88 @@ describe('getPostsByExamBoard', () => {
 
     await expect(getPostsByExamBoard('board-1')).resolves.toEqual(posts);
     expect(fetchMock.mock.calls[0][0]).toContain('/public/posts?examBoardId=board-1');
+    expect(fetchMock.mock.calls[0][0]).not.toContain('category');
+  });
+
+  it('adds a category filter (TAPS-3.8) when one is passed', async () => {
+    const posts = [{ id: '1', title: 'A pattern post', category: 'exam-pattern' }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: posts, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getPostsByExamBoard('board-1', 'exam-pattern')).resolves.toEqual(posts);
+    expect(fetchMock.mock.calls[0][0]).toContain('examBoardId=board-1');
+    expect(fetchMock.mock.calls[0][0]).toContain('category=exam-pattern');
   });
 });
 
-describe('filterArticles', () => {
-  function post(overrides: Partial<Post>): Post {
-    return {
-      id: 'id',
-      examBoardId: 'board-1',
-      type: 'ARTICLE',
-      title: 'title',
-      slug: 'slug',
-      body: 'body',
-      heroImage: null,
-      publishedAt: '2026-01-01T00:00:00.000Z',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      ...overrides,
-    };
-  }
+describe('getSyllabusByExamBoard', () => {
+  const originalFetch = global.fetch;
 
-  it('keeps only ARTICLE-type posts, dropping NOTIFICATION ones', () => {
-    const notification = post({ id: '1', type: 'NOTIFICATION' });
-    const article = post({ id: '2', type: 'ARTICLE' });
-
-    expect(filterArticles([notification, article])).toEqual([article]);
+  afterEach(() => {
+    global.fetch = originalFetch;
   });
 
-  it('returns an empty array when there are no articles', () => {
-    expect(filterArticles([post({ type: 'NOTIFICATION' })])).toEqual([]);
+  it('requests the examBoardId-filtered syllabus endpoint and returns the data array', async () => {
+    const syllabus = [{ id: '1', subject: 'Mathematics', topics: ['Algebra'] }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({ data: syllabus, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getSyllabusByExamBoard('board-1')).resolves.toEqual(syllabus);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/syllabus?examBoardId=board-1');
+  });
+});
+
+describe('getPastPapersByExamBoard', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('requests the examBoardId-filtered past-papers endpoint and returns the data array', async () => {
+    const pastPapers = [
+      { id: '1', subject: 'Mathematics', year: 2025, fileUrl: 'https://x/1.pdf' },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({ data: pastPapers, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getPastPapersByExamBoard('board-1')).resolves.toEqual(pastPapers);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/past-papers?examBoardId=board-1');
+  });
+});
+
+describe('getAllStudyMaterials', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('requests the unfiltered study-materials endpoint and returns the data array', async () => {
+    const studyMaterials = [
+      { id: '1', subject: 'Mathematics', title: 'Algebra notes', fileUrl: 'https://x/1.pdf' },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({ data: studyMaterials, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getAllStudyMaterials()).resolves.toEqual(studyMaterials);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/study-materials?pageSize=100');
+    expect(fetchMock.mock.calls[0][0]).not.toContain('examBoardId');
   });
 });
 

@@ -26,7 +26,11 @@ describe('EligibilityPage', () => {
     const element = await EligibilityPage(params('board-1'));
 
     expect(element.type).toBe(ExamBoardSubPage);
-    expect(element.props).toMatchObject({ examBoardId: 'board-1', title: 'Eligibility' });
+    expect(element.props).toMatchObject({
+      examBoardId: 'board-1',
+      title: 'Eligibility',
+      category: 'eligibility',
+    });
     expect(typeof element.props.note).toBe('string');
   });
 });

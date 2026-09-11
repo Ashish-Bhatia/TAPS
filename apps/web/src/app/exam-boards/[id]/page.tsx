@@ -7,19 +7,17 @@ import { getExamBoard, getPostsByExamBoard } from '../../../lib/api';
 // 03-SOURCE-SITE-CONTENT-INVENTORY.md: overview + links out to Syllabus /
 // Pattern / Previous Papers / Study Material / Eligibility.
 //
-// TAPS-3.6: Exam Pattern and Eligibility became real board-specific pages
-// (ExamBoardSubPage, backed by Post — see filterArticles in lib/api.ts for
-// the known limitation this leaves). Syllabus, Previous Papers, and Study
-// Material still route to the generic placeholder pages TAPS-3.2 built:
-// Syllabus/PastPaper/StudyMaterial have Prisma models (TAPS-2.x) but no
-// public API endpoints yet (only ExamBoard/Post do, per TAPS-3.1 — see
-// apps/api/src/public-content/). Filed as TAPS-3.8, not built here.
+// TAPS-3.6: all five are now real board-specific pages, wired to TAPS-3.8's
+// public endpoints — Syllabus/PastPaper both filter by examBoardId,
+// Exam Pattern/Eligibility filter Post by category, and Study Material
+// (no examBoardId on that model) shows the full catalog with a note saying
+// so. See docs/architecture/web-app.md's "Routing conventions" section.
 function hubSections(examBoardId: string) {
   return [
-    { label: 'Syllabus', href: '/syllabus' },
+    { label: 'Syllabus', href: `/exam-boards/${examBoardId}/syllabus` },
     { label: 'Exam Pattern', href: `/exam-boards/${examBoardId}/exam-pattern` },
-    { label: 'Previous Papers', href: '/previous-papers' },
-    { label: 'Study Material', href: '/study-materials' },
+    { label: 'Previous Papers', href: `/exam-boards/${examBoardId}/previous-papers` },
+    { label: 'Study Material', href: `/exam-boards/${examBoardId}/study-materials` },
     { label: 'Eligibility', href: `/exam-boards/${examBoardId}/eligibility` },
   ];
 }

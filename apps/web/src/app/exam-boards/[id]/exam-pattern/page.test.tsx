@@ -26,7 +26,11 @@ describe('ExamPatternPage', () => {
     const element = await ExamPatternPage(params('board-1'));
 
     expect(element.type).toBe(ExamBoardSubPage);
-    expect(element.props).toMatchObject({ examBoardId: 'board-1', title: 'Exam Pattern' });
+    expect(element.props).toMatchObject({
+      examBoardId: 'board-1',
+      title: 'Exam Pattern',
+      category: 'exam-pattern',
+    });
     expect(typeof element.props.note).toBe('string');
   });
 });
