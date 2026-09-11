@@ -33,7 +33,66 @@ Every `apps/web` → `apps/api` fetch uses `cache: 'no-store'` — no `next.reva
 was not the original design (ISR-style `revalidate: 300` caching was tried first) — see
 `docs/adr/008-web-api-fetch-caching.md` for the real bug that caused the switch (a stale/empty
 cached response that survived full dev-server restarts) and its accepted consequence (every route
-is now server-rendered per-request rather than statically pre-rendered).
+is now server-rendered per-request rather than statically pre-rendered). `TAPS-3.5` (below)
+re-verified this decision against Next.js 16's actual current caching defaults and found it still
+correct, with guidance for the user-specific fetches `EPIC 5` is about to add.
+
+## Data Cache audit (`TAPS-3.5`)
+
+`TAPS-3.5` re-investigated the above decision against Next.js 16.3.4's real, current behavior —
+read straight from `node_modules/next/dist/docs/` (the docs bundled with the exact installed
+version, per `apps/web/AGENTS.md`'s warning not to assume this Next.js behaves like older
+training-data versions), not assumed from Next 13/14 conventions.
+
+**What actually changed in Next.js 16 vs. 13/14:** in 13/14, `fetch()` was cached (`force-cache`)
+by default. In Next 16 — and this app doesn't set the `cacheComponents` flag in
+`next.config.ts`, so it's on the "Previous Model" both these docs describe, not Cache Components —
+a bare `fetch()` with no `cache` option is **also not cached by default** ("`auto no cache`" per
+`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/fetch.md`): every request
+refetches in dev; in a production build it fetches once at build time only if the route can be
+statically prerendered (no Request-time API reached first), and refetches on every request once a
+Request-time API is used earlier in the tree
+(`.../01-app/02-guides/caching-without-cache-components.md`).
+
+**Fetch-by-fetch audit — every `apps/web` → `apps/api` call:**
+
+| Call site                                                                                  | Option              | Verdict               |
+| ------------------------------------------------------------------------------------------ | ------------------- | --------------------- |
+| `apiFetch()` (`lib/api.ts`) — backs `getExamBoardsForNav`, `getPostsByExamBoard`, `search` | `cache: 'no-store'` | Dynamic, correctly so |
+| `getExamBoard()`'s standalone fetch (`lib/api.ts`)                                         | `cache: 'no-store'` | Dynamic, correctly so |
+
+A repo-wide search confirmed these are the _only_ two `fetch()` call sites in `apps/web/src` —
+every page goes through one of them, none fetches `apps/api` directly, and no page/layout exports
+a `revalidate`, `dynamic`, or `fetchCache` route segment config. **0 of these are caching when
+they should be dynamic** — there is no stale-content risk today; every response is live. No code
+changes were needed.
+
+**Is `cache: 'no-store'` still the right call?** Yes, confirmed rather than assumed. Even though
+Next 16's own bare default is now "not cached" in the loose sense above, it still differs from
+`no-store` in the one way that matters here: the bare default serves a build-time snapshot on
+every request for any route Next can statically prerender — exactly the kind of caching that made
+a just-published `Post` invisible in ADR-008's original bug. Only explicit `cache: 'no-store'`
+guarantees a live round-trip on every production request, so ADR-008's decision stands unchanged.
+
+**The real, still-open cost — dynamic where it could safely cache:** every request, including
+fully static placeholder pages (`/about`, `/privacy`, etc. — see `ComingSoon.tsx`), round-trips to
+`apps/api` because the root layout's nav fetch (`getExamBoardsForNav`) is uncached on _every_
+page. This is unnecessary DB load, not a correctness bug, and it's the same trade-off ADR-008
+already named and accepted deliberately — not a new finding. Reintroducing caching safely for this
+means tag-based invalidation (`next.tags` + `revalidateTag`) fired from `apps/api`'s admin write
+endpoints on `ExamBoard`/`Post` writes, which needs `apps/api` to call back into `apps/web` (a new
+authenticated revalidation route + cross-service wiring) — non-trivial and out of this
+investigation's scope. Filed as `TAPS-3.7` (`docs/backlog/BACKLOG.md`), not fixed here.
+
+**Guidance for `EPIC 5`'s upcoming user-specific dashboard/quiz-attempt pages:** nothing needs to
+change defensively before `EPIC 5` lands — every current fetch already re-fetches live on every
+request, which is the safe default for per-user data too. One sharp edge worth flagging now for
+whoever builds `EPIC 5`'s authenticated fetches: `fetch.md`'s reference is explicit that caching is
+opt-in — `cache: 'force-cache'` "will cache any request, including... requests that send
+`authorization` or `cookie` headers." So the first session-scoped fetch (a user's dashboard/quiz
+attempts) must stay on `cache: 'no-store'` (or a `next.tags`-tagged, per-user cache key if caching
+is ever deliberately wanted there) — never `force-cache` or a bare `next.revalidate`, or one user's
+response can be served back to another user by Next's own persistent fetch cache.
 
 ## Routing conventions
 
