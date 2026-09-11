@@ -35,8 +35,10 @@ live; deploy steps: `docs/runbooks/deploy-api.md`. `apps/web` is live on Vercel 
 
 ## Current sprint
 
-**Sprint 6** — in progress (EPIC 6: mobile app). `TAPS-6.1` (exam board browsing) done; `TAPS-6.2`–
-`6.5` (auth, quiz-taking, progress dashboard) next. Sprints 1–5 summaries: `docs/sprints/`. Backlog:
+**Sprint 6** — closed (EPIC 6: mobile app, fully done — exam board browsing, auth, quiz-taking,
+progress dashboard). `TAPS-4.4` (seed real content in production) filed as a follow-up, not yet
+started — needs a real source document + admin action. Sprint 7 not yet planned. Sprints 1–6
+summaries: `docs/sprints/`. Backlog:
 `docs/backlog/BACKLOG.md`.
 
 ## Contributing
