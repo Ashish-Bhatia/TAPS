@@ -55,7 +55,9 @@
 - `StudyMaterial` (id, subject, title, fileUrl)
 - `Book` (id, class, subject, title, fileUrl)
 - `User` (id, email, name, examTargets[], createdAt)
-- `QuizQuestion` (id, subject, topic, difficulty, sourcePaperId?, questionText, options[], correctOption, explanation)
+- `QuizQuestion` (id, pastPaperId, subject, topic, difficulty[EASY|MEDIUM|HARD], questionText,
+  options[], correctOption, explanation, aiGenerated, reviewedByAdmin, createdAt) — populated by
+  `AIService.generateQuizFromPaper` (`TAPS-4.1`), see ADR 011.
 - `QuizAttempt` (id, userId, quizId, score, weakTopics[], completedAt)
 - `StudyPlan` (id, userId, examBoardId, targetDate, dailyPlan[])
 
@@ -63,7 +65,15 @@
 
 All AI calls go through `apps/api/src/ai/ai.service.ts`:
 
-- `generateQuizFromPaper(pastPaperId)` → `QuizQuestion[]`
+- `generateQuizFromPaper(pastPaperId)` → `QuizQuestion[]` — implemented, `TAPS-4.1`/`TAPS-4.2`.
+  Calls Anthropic (`claude-sonnet-5` via `@anthropic-ai/sdk`) first; on a fallback-eligible failure
+  (billing/credit error, rate limit, or a 5xx) retries the same request against OpenAI
+  (`gpt-5.6-terra` via `openai`) instead of failing outright. Both providers implement the same
+  internal `QuizGenerationProvider` interface (`apps/api/src/ai/ai.providers.ts`) and normalize to
+  the same output shape before validation, so persistence code never needs to know which one
+  produced a given `QuizQuestion` row — only the row's own `aiProvider` field records that. See
+  `docs/api/quiz-generation.md`, `docs/adr/011-ai-quiz-generation.md`, and
+  `docs/adr/012-ai-provider-fallback.md`.
 - `getAdaptiveQuiz(userId, examBoardId)` → next quiz tuned to weak topics
 - `generateStudyPlan(userId, examBoardId, targetDate, dailyHours)` → `StudyPlan`
 - `askDoubt(userId, question, examBoardContext)` → scoped chat response

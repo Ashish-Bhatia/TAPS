@@ -40,6 +40,22 @@ enum ExtractionStatus {
   FAILED
 }
 
+// QuizQuestion difficulty, assigned by AIService.generateQuizFromPaper's
+// model output (TAPS-4.1) — see docs/adr/011-ai-quiz-generation.md.
+enum QuizDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+// Which provider actually generated a QuizQuestion row (TAPS-4.2) — ANTHROPIC
+// unless Anthropic failed in a fallback-eligible way and OpenAI produced the
+// result instead. See docs/adr/012-ai-provider-fallback.md.
+enum AIProvider {
+  ANTHROPIC
+  OPENAI
+}
+
 model ExamBoard {
   id          String        @id @default(cuid())
   // @unique added in TAPS-2.4: the seed script needs to upsert idempotently
@@ -119,6 +135,8 @@ model PastPaper {
   extractedText    String?          @db.Text
   extractionStatus ExtractionStatus @default(PENDING)
 
+  quizQuestions QuizQuestion[]
+
   @@index([examBoardId])
   @@index([subject])
   @@index([year])
@@ -126,6 +144,39 @@ model PastPaper {
   // papers filtered by subject and year together) — see the ADR.
   @@index([examBoardId, subject, year])
   @@map("past_papers")
+}
+
+// AI-generated question bank (TAPS-4.1) — populated by
+// AIService.generateQuizFromPaper from a PastPaper's extractedText. See
+// docs/adr/011-ai-quiz-generation.md and 05-ARCHITECTURE.md §5. Every row
+// starts aiGenerated: true, reviewedByAdmin: false per 08-AI-FEATURES-SPEC.md
+// §5's guardrail — an AI-written question is never presented as
+// admin-reviewed until an admin actually reviews it.
+model QuizQuestion {
+  id              String         @id @default(cuid())
+  pastPaperId     String
+  pastPaper       PastPaper      @relation(fields: [pastPaperId], references: [id], onDelete: Restrict)
+  subject         String
+  topic           String
+  difficulty      QuizDifficulty
+  questionText    String         @db.Text
+  options         String[]
+  correctOption   Int
+  explanation     String         @db.Text
+  aiGenerated     Boolean        @default(true)
+  reviewedByAdmin Boolean        @default(false)
+  // Which provider produced this row (TAPS-4.2) — ANTHROPIC is the default
+  // path; OPENAI only when Anthropic failed in a fallback-eligible way (see
+  // docs/adr/012-ai-provider-fallback.md). Defaulted rather than required-
+  // with-no-default so existing rows from before this column existed
+  // backfill cleanly.
+  aiProvider      AIProvider     @default(ANTHROPIC)
+  createdAt       DateTime       @default(now())
+
+  @@index([pastPaperId])
+  @@index([subject])
+  @@index([topic])
+  @@map("quiz_questions")
 }
 
 model StudyMaterial {

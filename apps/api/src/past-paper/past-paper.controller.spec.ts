@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExtractionStatus } from '@prisma/client';
+import { AIService } from '../ai/ai.service.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { PastPaperController } from './past-paper.controller.js';
 import { PastPaperService } from './past-paper.service.js';
@@ -14,12 +15,18 @@ describe('PastPaperController', () => {
     update: vi.fn(),
     remove: vi.fn(),
   };
+  const aiServiceMock = {
+    generateQuizFromPaper: vi.fn(),
+  };
 
   beforeEach(async () => {
     vi.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [PastPaperController],
-      providers: [{ provide: PastPaperService, useValue: serviceMock }],
+      providers: [
+        { provide: PastPaperService, useValue: serviceMock },
+        { provide: AIService, useValue: aiServiceMock },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -62,5 +69,22 @@ describe('PastPaperController', () => {
     expect(serviceMock.create).toHaveBeenCalledWith(dto);
     expect(result).toEqual(created);
     expect(result.extractionStatus).toBe(ExtractionStatus.DONE);
+  });
+
+  it('generateQuiz delegates to AIService and returns the created count', async () => {
+    aiServiceMock.generateQuizFromPaper.mockResolvedValue([{ id: 'q1' }, { id: 'q2' }]);
+
+    const result = await controller.generateQuiz('pp-1');
+
+    expect(aiServiceMock.generateQuizFromPaper).toHaveBeenCalledWith('pp-1');
+    expect(result).toEqual({ count: 2 });
+  });
+
+  it('generateQuiz returns count 0 when no questions were extracted', async () => {
+    aiServiceMock.generateQuizFromPaper.mockResolvedValue([]);
+
+    const result = await controller.generateQuiz('pp-1');
+
+    expect(result).toEqual({ count: 0 });
   });
 });

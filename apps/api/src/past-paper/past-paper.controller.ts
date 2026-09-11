@@ -13,10 +13,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PastPaper } from '@prisma/client';
+import { AIService } from '../ai/ai.service.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreatePastPaperDto } from './dto/create-past-paper.dto.js';
 import { UpdatePastPaperDto } from './dto/update-past-paper.dto.js';
 import { PastPaperService } from './past-paper.service.js';
+
+export interface GenerateQuizResponse {
+  count: number;
+}
 
 /**
  * Admin-only CMS endpoints (TAPS-2.3's pattern, applied to `PastPaper` by
@@ -29,7 +34,10 @@ import { PastPaperService } from './past-paper.service.js';
 @Controller('past-papers')
 @UseGuards(JwtAuthGuard)
 export class PastPaperController {
-  constructor(private readonly pastPaperService: PastPaperService) {}
+  constructor(
+    private readonly pastPaperService: PastPaperService,
+    private readonly aiService: AIService,
+  ) {}
 
   @Post()
   create(@Body() dto: CreatePastPaperDto): Promise<PastPaper> {
@@ -59,5 +67,19 @@ export class PastPaperController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('id') id: string): Promise<void> {
     await this.pastPaperService.remove(id);
+  }
+
+  /**
+   * TAPS-4.1: runs `AIService.generateQuizFromPaper` against this paper's
+   * extracted text and reports how many `QuizQuestion` rows it created.
+   * Question-bank generation only — this does not return the questions
+   * themselves (fetch via a future `QuizQuestion` read endpoint); returning
+   * a bare count keeps this admin action's response small regardless of
+   * how many questions a paper yields.
+   */
+  @Post(':id/generate-quiz')
+  async generateQuiz(@Param('id') id: string): Promise<GenerateQuizResponse> {
+    const created = await this.aiService.generateQuizFromPaper(id);
+    return { count: created.length };
   }
 }
