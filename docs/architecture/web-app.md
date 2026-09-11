@@ -158,43 +158,47 @@ because the client-side search box (`TAPS-3.4`) calls it directly from the brows
 base URL, not a secret. Falls back to `http://localhost:8080` (the `apps/api` dev default) if
 unset. See `apps/web/.env.example`.
 
-## Progress dashboard (`TAPS-5.3`) — blocked on a missing login-UI story
+## Authentication & sessions (`TAPS-5.0.5`)
 
-`TAPS-5.3` was scoped as: build a `/dashboard`-style page reading `apps/api`'s new
-`GET /quiz-attempts/me` (`docs/api/quiz-attempts.md`), gated behind the user being logged in. That
-API endpoint is built (see the doc above) — this section is about the web half, which is **not**
-built, and why.
+Fills the gap `TAPS-5.3` originally discovered: `apps/web` had no auth surface at all (no
+login/register page, no session cookie or token storage, no client- or server-side notion of "the
+current user"), so its `/dashboard` page had nothing to gate behind and no way for a real visitor
+to ever reach it. `apps/web` (Vercel) and `apps/api` (Fly.io) are different domains, which rules
+out `apps/api` setting a session cookie directly on its own login response — see
+`docs/adr/016-web-session-cookie-strategy.md` for the full reasoning and live cross-domain
+verification. The short version:
 
-**The gap:** `apps/web` has no auth surface of any kind yet. A repo-wide search of `apps/web/src`
-for `login`/`session`/`cookie`/`jwt`/`auth` (any case) returns zero matches — no login/register
-page, no session cookie or token storage, no client- or server-side notion of "the current user" at
-all. `TAPS-5.1` built the `POST /user-auth/register`/`POST /user-auth/login` API endpoints and a
-bearer-JWT session model (`docs/api/user-auth.md`), but scoped no `apps/web` UI to call them or
-persist the resulting `accessToken` — its acceptance criteria and testing were entirely
-API-side/`curl`-level. `TAPS-5.2` (quiz attempts) is the same: API-only, no web UI. So by the time
-`TAPS-5.3` starts, there is no way for a real site visitor to ever obtain a session in the first
-place, and therefore no way to reach an authenticated dashboard page — building one now would be
-unreachable dead code that could only ever be exercised by hand-crafting a JWT outside the browser,
-not a working feature.
+- `src/app/login/page.tsx` / `.../register/page.tsx` — plain HTML forms (`<form method="POST">`,
+  no client-side JS, same philosophy as the nav search box) posting to `apps/web`'s own Route
+  Handlers.
+- `src/app/api/auth/{login,register,logout}/route.ts` — these Route Handlers call `apps/api`'s
+  `POST /user-auth/login`/`register` (`docs/api/user-auth.md`) server-to-server, then set the
+  returned JWT as an httpOnly `taps_session` cookie **on `apps/web`'s own domain** before
+  redirecting to `/dashboard`. `logout` just deletes the cookie (the JWT is stateless — nothing to
+  invalidate server-side).
+- `src/lib/session.ts` — `getSessionToken()` (presence-only read, used by the header to decide
+  which links to show), `requireSessionToken()` (the Data Access Layer check: redirects to
+  `/login` before a protected Server Component renders anything, so there's no client-side flash),
+  and `clearSessionAndRedirectToLogin()` (called when `apps/api`'s `UserJwtAuthGuard` rejects a
+  stale/tampered token that passed the presence check).
+- `src/proxy.ts` — Next.js 16's `proxy.ts` (the file `middleware.ts` was renamed to; see the ADR
+  for the version-specific verification), an optimistic cookie-presence pre-filter scoped via
+  `matcher` to `/dashboard`, `/login`, and `/register` only.
+- `src/lib/api.ts`'s `getMyQuizAttempts(token)` forwards the token as a normal `Authorization:
+Bearer` header to `apps/api` — the one real authenticated fetch, and the only place the JWT's
+  signature/expiry is actually checked (`apps/web` deliberately holds no `USER_JWT_SECRET`).
 
-**What this means concretely for "requires the user to be logged in":** there is no established
-pattern to follow for that requirement — no cookie name, no client-side session hook, no
-server-side "read the session in a Server Component" helper, nothing this story could build on. Any
-one of these would itself be a real design decision (httpOnly cookie set by a Next.js Route Handler
-that proxies `apps/api`'s login response, vs. client-side `localStorage` + a client-only guarded
-page, vs. something else) — exactly the kind of decision this app's existing pages (all
-public/unauthenticated so far) have never had to make, and inventing it as a side effect of the
-dashboard page would mean the actual foundational decision gets made without its own review.
+## Progress dashboard (`TAPS-5.3`)
 
-**Resolution:** rather than build a page nothing can reach, `TAPS-5.3` is marked **Blocked** in
-`docs/backlog/BACKLOG.md`, and a new story is filed for the missing piece — `TAPS-5.0.5` ("login
-page + session cookie/token handling" — numbered to slot chronologically before `5.1`, since it's
-logically a prerequisite `TAPS-5.1` needed all along, not new scope `5.3` introduced). `TAPS-5.3`
-stays scoped to the dashboard page and re-opens once `TAPS-5.0.5` gives it something to gate.
-
-The API half (`GET /quiz-attempts/me`) is unaffected by this and is genuinely done — it's a normal
-authenticated endpoint like `POST /quiz-attempts/start`/`submit`, consumable by anything holding a
-valid user JWT (`curl`, a mobile client, or, once `TAPS-5.0.5` lands, this web app).
+`src/app/dashboard/page.tsx`, protected by `requireSessionToken()` above, reads `apps/api`'s
+`GET /quiz-attempts/me` (`docs/api/quiz-attempts.md`, `TAPS-5.3`) and renders three sections: an
+accuracy-trend bar chart (oldest attempt first, matching the API's own ordering), a weak-topic
+heatmap (topic chips shaded by relative incorrect-answer count), and the attempt list itself
+(most-recent-first). A user with zero completed attempts sees an empty-state message instead of
+three empty sections. The fetch uses `cache: 'no-store'` — this is the exact per-user,
+`authorization`-header-carrying fetch this doc's "Guidance for EPIC 5's upcoming user-specific
+dashboard/quiz-attempt pages" section (above) flagged in advance, before it existed: caching it
+would risk Next's fetch cache serving one user's attempt history back to another.
 
 ## Testing
 

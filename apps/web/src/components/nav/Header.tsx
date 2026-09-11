@@ -4,6 +4,12 @@ import { staticNavItems } from '../../lib/nav-config';
 
 interface HeaderProps {
   examBoards: ExamBoard[];
+  // Whether the visitor has a session cookie (TAPS-5.0.5) — presence-only,
+  // same "optimistic" check as proxy.ts/requireSessionToken, computed once
+  // by the root layout (src/app/layout.tsx) via getSessionToken() and
+  // passed down, so this stays a plain sync component rather than needing
+  // its own async cookie read.
+  hasSession: boolean;
 }
 
 /**
@@ -13,7 +19,7 @@ interface HeaderProps {
  * and keyboard-operable by default, and needs no client-side JS/hydration
  * for a header that renders on every single page.
  */
-export function Header({ examBoards }: HeaderProps) {
+export function Header({ examBoards, hasSession }: HeaderProps) {
   const teachingBoards = examBoards.filter((board) => board.type === 'TEACHING');
   const tetBoards = examBoards.filter((board) => board.type === 'TET');
 
@@ -64,6 +70,37 @@ export function Header({ examBoards }: HeaderProps) {
             Search
           </button>
         </form>
+
+        {/* TAPS-5.0.5: session-aware auth links. Logged out shows
+            Login/Register; logged in shows Dashboard + a logout form
+            (plain POST, no client JS — src/app/api/auth/logout/route.ts). */}
+        {hasSession ? (
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/dashboard" className="hover:underline">
+              Dashboard
+            </Link>
+            <form action="/api/auth/logout" method="POST">
+              <button
+                type="submit"
+                className="rounded-md border border-black/10 px-3 py-1.5 font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+              >
+                Log out
+              </button>
+            </form>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 text-sm">
+            <Link href="/login" className="hover:underline">
+              Log in
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-md border border-black/10 px-3 py-1.5 font-medium hover:bg-black/5 dark:border-white/15 dark:hover:bg-white/10"
+            >
+              Register
+            </Link>
+          </div>
+        )}
       </nav>
     </header>
   );
