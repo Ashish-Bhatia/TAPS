@@ -101,15 +101,35 @@ response can be served back to another user by Next's own persistent fetch cache
   title/description from the fetched `ExamBoard`; a segment-level `not-found.tsx` renders when
   `getExamBoard` returns `null`.
 - The hub page's "Syllabus / Exam Pattern / Previous Papers / Study Material / Eligibility"
-  sub-section links (per the "Exam Hub page" type in
-  `03-SOURCE-SITE-CONTENT-INVENTORY.md`) route to the generic placeholder pages below, not
-  per-board routes — none of those models have a public API yet (only `ExamBoard`/`Post` do).
-  Becoming board-specific (e.g. `/exam-boards/[id]/syllabus`) is a natural follow-up once they do.
+  sub-section links, per the "Exam Hub page" type in `03-SOURCE-SITE-CONTENT-INVENTORY.md`:
+  - **Exam Pattern / Eligibility** (`TAPS-3.6`) are real board-specific routes —
+    `/exam-boards/[id]/exam-pattern` and `/exam-boards/[id]/eligibility`
+    (`src/components/exam-hub/ExamBoardSubPage.tsx`, shared by both). Neither has its own data
+    model — per `03-SOURCE-SITE-CONTENT-INVENTORY.md` they were originally just article-type
+    `Post` content on the source site — and `Post` has no category/tag field to split "pattern"
+    articles from "eligibility" articles from any other general article (`PostType` is only
+    `NOTIFICATION | ARTICLE`). So both pages currently render the same real data: a board's
+    published `ARTICLE`-type posts (`filterArticles` in `lib/api.ts`), filtered client-side since
+    the public posts endpoint has no `type` query param. This is genuine `apps/api` data, not a
+    mock — but the two pages are not yet content-distinct from each other. A real `Post` category
+    to make that split meaningful is filed as `TAPS-3.8`.
+  - **Syllabus / Previous Papers / Study Material** still route to the generic placeholder pages
+    below, unchanged by `TAPS-3.6` — `Syllabus`, `PastPaper`, and `StudyMaterial` have Prisma
+    models (`apps/api/prisma/schema.prisma`) but **no public API endpoints**
+    (`apps/api/src/public-content/` only has `PublicExamBoardsController`/`PublicPostsController`/
+    `SearchController` — confirmed by reading that directory and `docs/api/public-content.md`
+    directly, not assumed). `TAPS-3.1`'s own scope note flagged this ("...and eventually
+    `Syllabus`/`PastPaper`/`StudyMaterial`/`Book`"). Becoming board-specific routes
+    (e.g. `/exam-boards/[id]/syllabus`) needs that public API built first — filed as `TAPS-3.8`
+    alongside the `Post`-category gap above, rather than building pages against endpoints that
+    don't exist or inventing mock data.
 - Placeholder/"coming soon" routes for nav categories and hub sub-sections with no public API yet:
-  `/syllabus`, `/exam-pattern`, `/previous-papers`, `/study-materials`, `/eligibility`,
-  `/new-jobs`, `/ncert-books`, plus the footer's `/about`, `/contact`, `/disclaimer`, `/privacy` —
-  all real, working routes (never a silent 404 for a primary nav item or hub section), rendering
-  `src/components/ui/ComingSoon.tsx`.
+  `/syllabus`, `/previous-papers`, `/study-materials`, `/new-jobs`, `/ncert-books`, plus the
+  footer's `/about`, `/contact`, `/disclaimer`, `/privacy` — all real, working routes (never a
+  silent 404 for a primary nav item or hub section), rendering `src/components/ui/ComingSoon.tsx`.
+  The standalone (non-board) `/exam-pattern` and `/eligibility` placeholder routes from `TAPS-3.2`
+  still exist too (harmless, reachable by direct URL) but are no longer linked from anywhere now
+  that the hub page points at the board-specific pages above.
 - `params` is a `Promise` in this Next.js version (breaking change from 14 and earlier) — always
   `await props.params`, and prefer the generated `PageProps<'/route'>`/`LayoutProps<'/route'>`
   type helpers over hand-written param types. `searchParams` is a `Promise` too (`/search`, below).

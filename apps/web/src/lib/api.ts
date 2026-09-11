@@ -78,6 +78,26 @@ export async function getPostsByExamBoard(examBoardId: string): Promise<Post[]> 
 }
 
 /**
+ * Used by the exam hub's Exam Pattern/Eligibility sub-pages (TAPS-3.6).
+ * Neither has its own data model — per
+ * 03-SOURCE-SITE-CONTENT-INVENTORY.md they were originally just
+ * article-type Post content on the source site — and `Post` itself has no
+ * category/tag field to split "pattern" articles from "eligibility"
+ * articles from any other general article (`PostType` is only
+ * `NOTIFICATION | ARTICLE`, see `apps/api/prisma/schema.prisma`). This
+ * filters to the closest real distinction available today: a board's
+ * `ARTICLE`-type posts, done client-side since `ListPostsQueryDto` (the
+ * public posts endpoint) has no `type` query param. Known limitation this
+ * leaves: both pages currently render the same set for a given board —
+ * filed as `TAPS-3.8` for a real `Post` category to make that split
+ * meaningful, alongside the still-missing public API for
+ * `Syllabus`/`PastPaper`/`StudyMaterial`.
+ */
+export function filterArticles(posts: Post[]): Post[] {
+  return posts.filter((post) => post.type === 'ARTICLE');
+}
+
+/**
  * Used by the search page (TAPS-3.4). Like getExamBoard, does NOT fail
  * soft — the search page's entire purpose is this fetch's result, so a
  * real API error should surface as a real error.

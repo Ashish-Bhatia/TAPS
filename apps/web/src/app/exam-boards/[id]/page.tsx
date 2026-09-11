@@ -5,20 +5,24 @@ import { getExamBoard, getPostsByExamBoard } from '../../../lib/api';
 
 // Sub-sections per the "Exam Hub page" type in
 // 03-SOURCE-SITE-CONTENT-INVENTORY.md: overview + links out to Syllabus /
-// Pattern / Previous Papers / Study Material / Eligibility. None of these
-// have per-board content yet (only ExamBoard/Post have a public API this
-// sprint — TAPS-3.1), so these route to the generic placeholder pages
-// TAPS-3.2 already built rather than 404ing or inventing half-built
-// per-board routes. Becoming board-specific (e.g. /exam-boards/[id]/syllabus)
-// is a natural follow-up once Syllabus/PastPaper/StudyMaterial get their
-// own public API — tracked in the backlog, not built here.
-const hubSections = [
-  { label: 'Syllabus', href: '/syllabus' },
-  { label: 'Exam Pattern', href: '/exam-pattern' },
-  { label: 'Previous Papers', href: '/previous-papers' },
-  { label: 'Study Material', href: '/study-materials' },
-  { label: 'Eligibility', href: '/eligibility' },
-];
+// Pattern / Previous Papers / Study Material / Eligibility.
+//
+// TAPS-3.6: Exam Pattern and Eligibility became real board-specific pages
+// (ExamBoardSubPage, backed by Post — see filterArticles in lib/api.ts for
+// the known limitation this leaves). Syllabus, Previous Papers, and Study
+// Material still route to the generic placeholder pages TAPS-3.2 built:
+// Syllabus/PastPaper/StudyMaterial have Prisma models (TAPS-2.x) but no
+// public API endpoints yet (only ExamBoard/Post do, per TAPS-3.1 — see
+// apps/api/src/public-content/). Filed as TAPS-3.8, not built here.
+function hubSections(examBoardId: string) {
+  return [
+    { label: 'Syllabus', href: '/syllabus' },
+    { label: 'Exam Pattern', href: `/exam-boards/${examBoardId}/exam-pattern` },
+    { label: 'Previous Papers', href: '/previous-papers' },
+    { label: 'Study Material', href: '/study-materials' },
+    { label: 'Eligibility', href: `/exam-boards/${examBoardId}/eligibility` },
+  ];
+}
 
 export async function generateMetadata(props: PageProps<'/exam-boards/[id]'>): Promise<Metadata> {
   const { id } = await props.params;
@@ -50,7 +54,7 @@ export default async function ExamBoardHubPage(props: PageProps<'/exam-boards/[i
       <p className="mt-4 text-zinc-600 dark:text-zinc-400">{examBoard.description}</p>
 
       <div className="mt-8 flex flex-wrap gap-2">
-        {hubSections.map((section) => (
+        {hubSections(examBoard.id).map((section) => (
           <Link
             key={section.href}
             href={section.href}
