@@ -7,9 +7,13 @@ import { PrismaService } from '../prisma/prisma.service.js';
 export class PublicPostsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(pagination: PaginationQueryDto, examBoardId?: string): Promise<Paginated<Post>> {
+  async findAll(
+    pagination: PaginationQueryDto,
+    examBoardId?: string,
+    category?: string,
+  ): Promise<Paginated<Post>> {
     const { page, pageSize } = pagination;
-    const where = this.publishedWhere(examBoardId);
+    const where = this.publishedWhere(examBoardId, category);
 
     const [data, total] = await Promise.all([
       this.prisma.post.findMany({
@@ -32,10 +36,11 @@ export class PublicPostsService {
   // but it also isn't meant to be publicly readable yet just because
   // someone guesses or enumerates it. Admin-only PostController (TAPS-2.3)
   // is the only place drafts are visible.
-  private publishedWhere(examBoardId?: string): Prisma.PostWhereInput {
+  private publishedWhere(examBoardId?: string, category?: string): Prisma.PostWhereInput {
     return {
       publishedAt: { not: null, lte: new Date() },
       ...(examBoardId ? { examBoardId } : {}),
+      ...(category ? { category } : {}),
     };
   }
 }

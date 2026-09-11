@@ -47,6 +47,9 @@
   - Also carries a `searchVector` (`tsvector`) column for full-text search, added by `TAPS-3.4` — see ADR 009.
 - `Post` (id, examBoardId?, type[notification|article], title, slug, body, heroImage, publishedAt, updatedAt)
   - Also carries a `searchVector` (`tsvector`) column for full-text search, added by `TAPS-3.4` — see ADR 009.
+  - Also carries a nullable, free-form `category` (`String?`, not an enum) column, added by
+    `TAPS-3.8` so board-specific sub-pages (exam pattern, eligibility, etc.) can filter to
+    distinct content instead of sharing one `ARTICLE`-typed list — see ADR 013.
 - `Syllabus` (id, examBoardId, subject, topics[])
 - `PastPaper` (id, examBoardId, subject, year, fileUrl)
   - Also carries `extractedText` (nullable) and `extractionStatus` (`PENDING` | `DONE` | `FAILED`),
