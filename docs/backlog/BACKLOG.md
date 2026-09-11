@@ -39,68 +39,13 @@ TAPS-1.14–1.20 were added as a direct result of that pass.
 | TAPS-2.8  | Revisit the `prisma` CLI's transitive `deepmerge-ts` high-severity advisory (GHSA-ggr8-5vv4-36mx via `@prisma/config`) once a fixed release exists                                                                                                  | EPIC 2: Content data model + CMS/admin               | Ready — found during TAPS-2.2, devDependency-only (build-time, not runtime)                                                                                                                                                                                     | —        |
 | TAPS-2.10 | Map Prisma's `P2003` (foreign key constraint violation) in `PrismaExceptionFilter` — deleting an `ExamBoard` with attached `Syllabus`/`PastPaper` rows currently 500s instead of a clean 4xx                                                        | EPIC 2: Content data model + CMS/admin               | Ready — found during TAPS-2.3, see `docs/api/exam-boards.md`                                                                                                                                                                                                    | —        |
 | TAPS-2.11 | Extend `TAPS-2.4`'s seed data with BPSE, UP-TGT/PGT, and REET (`ExamBoard` rows) — the "Teaching Exams" nav dropdown (TAPS-3.2) only shows 3 of the source site's 6 listed boards until these exist                                                 | EPIC 2: Content data model + CMS/admin               | Ready — found during TAPS-3.2, see `docs/adr/007-nav-data-sourcing.md`                                                                                                                                                                                          | —        |
+| TAPS-2.12 | Track `multer` high-severity DoS advisories (GHSA-wc9g-mqfw-jrwm, GHSA-qfvm-cv95-jqjf, GHSA-qvfw-j98x-7q72, GHSA-535w-7cp7-47q4 — via `@nestjs/platform-express`) — no upstream fix available yet; monitor for a patched release                    | EPIC 2: Content data model + CMS/admin               | Ready — found during 2026-09-11 audit (`npm audit`); no target sprint; doc impact: this backlog entry only                                                                                                                                                      | —        |
 | TAPS-3.5  | Investigate the Next.js 16/Turbopack Data Cache bug that made `apps/web` switch to `cache: 'no-store'` for every API fetch (survived full dev-server restarts + a cleared `.next`); reintroduce caching once understood/fixed                       | EPIC 3: Web app — navigation, exam hub pages, search | Ready — found during TAPS-3.3, see `docs/adr/008-web-api-fetch-caching.md`                                                                                                                                                                                      | —        |
 | TAPS-3.6  | Board-specific exam hub sub-pages (Syllabus/Pattern/Previous Papers/Study Material/Eligibility per `ExamBoard`, e.g. `/exam-boards/[id]/syllabus`) once those models get a public API — TAPS-3.3's hub page currently links to generic placeholders | EPIC 3: Web app — navigation, exam hub pages, search | Ready — found during TAPS-3.3                                                                                                                                                                                                                                   | —        |
 | TAPS-3.1  | Public read-only endpoints for `ExamBoard`/`Post` (and eventually `Syllabus`/`PastPaper`/`StudyMaterial`/`Book`) for `apps/web` to consume — TAPS-2.3's CRUD is admin-only                                                                          | EPIC 3: Web app — navigation, exam hub pages, search | Done — 2026-09-10, see `docs/api/public-content.md` and `docs/adr/006-public-content-api-shape.md`                                                                                                                                                              | Sprint 2 |
 | TAPS-3.2  | `apps/web` navigation shell (header nav, footer, root layout) matching the source site's information architecture                                                                                                                                   | EPIC 3: Web app — navigation, exam hub pages, search | Done — 2026-09-10, see `docs/architecture/web-app.md` and `docs/adr/007-nav-data-sourcing.md`                                                                                                                                                                   | Sprint 2 |
 | TAPS-3.3  | Exam hub page template (`apps/web`) rendering an exam board's info + published posts, consuming TAPS-3.1's public API                                                                                                                               | EPIC 3: Web app — navigation, exam hub pages, search | Done — 2026-09-10, see `docs/architecture/web-app.md`, `docs/adr/008-web-api-fetch-caching.md`, and the `TAPS-3.1` bug-fix addendum in `docs/adr/006-public-content-api-shape.md`                                                                               | Sprint 2 |
 | TAPS-3.4  | Site search — basic Postgres full-text search (per `05-ARCHITECTURE.md`, not Meilisearch yet) across `Post`/`ExamBoard`, API + basic web UI                                                                                                         | EPIC 3: Web app — navigation, exam hub pages, search | Done — 2026-09-10, see `docs/adr/009-full-text-search.md`, `docs/api/public-content.md`, and `docs/architecture/web-app.md`                                                                                                                                     | Sprint 2 |
-
-## Sprint 2 Proposal (pending Ashish's sprint-planning approval — not started)
-
-Per `02-PRODUCT-VISION-AND-PRD.md` §6, Phase 1 (MVP) needs "content hubs + search + one AI feature
-(adaptive quiz engine) + web app." This proposal covers the content-hubs/search/web-app slice —
-**EPIC 4 (the adaptive quiz engine) is deliberately not proposed here**: it depends on `PastPaper`
-ingestion (actual uploaded past-paper content to generate questions from), which doesn't exist yet
-and isn't part of this proposal either. Sequencing quiz-engine work before there's anything to
-generate quizzes from would be building against a data source that isn't there.
-
-Each story below follows the mandatory format from `04-AGILE-PROCESS.md` §2.
-
----
-
-**TAPS-3.1 — Public read-only content API**
-Title: As a visitor to `apps/web`, I want to fetch exam board and post data without authenticating, so that the web app can render real content instead of admin-only data.
-Acceptance Criteria:
-
-- Given no `Authorization` header, when `GET /public/exam-boards` (or equivalent public route) is called, then it returns `200` with the exam board list — not `401`.
-- Given a `Post` with `publishedAt` unset (draft) or in the future, when the public posts endpoint is called, then that post is excluded from the response; a `Post` with a past `publishedAt` is included.
-- Given an unknown id, when a public detail route is called, then it returns `404`, not `500`.
-  Definition of Ready: data model already exists (`TAPS-2.1`/`2.2`), no new schema needed. Not blocked.
-  Estimate: S
-  Doc impact: `docs/api/public-content.md` (new)
-
-**TAPS-3.2 — Web navigation shell**
-Title: As a visitor, I want consistent site navigation (exam-board links, header, footer), so that I can find content the way I could on the source site's nav structure (`03-SOURCE-SITE-CONTENT-INVENTORY.md`).
-Acceptance Criteria:
-
-- Given any page in `apps/web`, when rendered, then a shared header (nav links grouped roughly as the source site's "Teaching Exams" / "TET Exams" dropdowns) and footer (About/Contact/Disclaimer/Privacy placeholders, per the PRD's MVP static-pages scope) are present.
-- Given a nav link to an exam board, when clicked, then it routes to that board's hub page (`TAPS-3.3`) — a working route even before real content is wired in.
-  Definition of Ready: no hard blocker; can ship with static nav entries and wire to `TAPS-3.1` once that merges.
-  Estimate: S
-  Doc impact: short note in `apps/web/README.md` on the layout structure.
-
-**TAPS-3.3 — Exam hub page template**
-Title: As a visitor, I want to open an exam board's hub page and see its notifications/posts, so that I get real content depth per board, matching the PRD's exam-hub scope.
-Acceptance Criteria:
-
-- Given a valid exam board id/slug, when its hub page is requested, then the page renders the board's name/type/description and its published posts, fetched from `TAPS-3.1`'s public API.
-- Given an exam board id that doesn't exist, when requested, then a proper Next.js `not-found` page renders — not an unhandled error page.
-  Definition of Ready: `TAPS-3.1` merged (needs the public API to exist).
-  Estimate: M
-  Doc impact: note in `docs/architecture/data-model.md` on how `apps/web` consumes the public API.
-
-**TAPS-3.4 — Site search (Postgres full-text)**
-Title: As a visitor, I want to search across posts and exam boards by keyword, so that I can find content the way I could use the source site's search.
-Acceptance Criteria:
-
-- Given a query matching a `Post`'s title or body, when the search endpoint is called, then that post appears in the results, ranked by relevance (Postgres `tsvector`/`ts_rank`, per `05-ARCHITECTURE.md`'s "Postgres full-text search initially" choice — not Meilisearch).
-- Given a query matching nothing, when searched, then an empty array is returned with `200`, not an error.
-  Definition of Ready: `TAPS-3.1` merged (shares the public-read module/controller pattern).
-  Estimate: M
-  Doc impact: `docs/api/public-content.md` updated; an ADR in `docs/adr/` if implementation surfaces a real indexing-strategy trade-off worth recording (e.g. generated `tsvector` column + `GIN` index vs. a plain `ILIKE` query) — to be written during the story itself, not decided here.
-
----
 
 ## Epics (seed list, per `04-AGILE-PROCESS.md` §7 — refined at future sprint plannings)
 
