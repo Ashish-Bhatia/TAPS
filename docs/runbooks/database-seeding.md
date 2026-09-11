@@ -1,8 +1,11 @@
 # Runbook — Seeding the database
 
-Covers `TAPS-2.4`. Seeds the six `ExamBoard` records the product launches with: DSSSB, KVS, NVS
-(teaching exam boards) and CTET, UPTET, HTET (Teacher Eligibility Tests) — see
-`docs/architecture/data-model.md`.
+Covers `TAPS-2.4` and `TAPS-2.11`. Seeds nine `ExamBoard` records: DSSSB, KVS, NVS, BPSE,
+UP-TGT/PGT, REET (teaching exam boards, shown in the "Teaching Exams" nav dropdown) and CTET,
+UPTET, HTET (Teacher Eligibility Tests, shown in the "TET-Exams" nav dropdown) — see
+`docs/architecture/data-model.md` and `docs/adr/007-nav-data-sourcing.md`. BPSE/UP-TGT/PGT/REET
+were added in `TAPS-2.11` to close the gap ADR-007 flagged: the source site's "Teaching Exams"
+dropdown lists six boards, but `TAPS-2.4` only seeded three of them.
 
 ## Running it
 
