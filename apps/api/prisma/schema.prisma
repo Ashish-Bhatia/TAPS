@@ -10,6 +10,9 @@
 // EPIC 4/5/7/8 and are intentionally out of scope for this sprint (see
 // docs/architecture/data-model.md). `User` was added by TAPS-5.1 — see the
 // model below and docs/adr/014-user-auth-separate-from-admin-auth.md.
+// `QuizAttempt` was added by TAPS-5.2 — see the model below and
+// docs/adr/015-quiz-attempt-data-shape.md. `StudyPlan` (EPIC 8) remains
+// out of scope.
 
 generator client {
   provider = "prisma-client-js"
@@ -69,9 +72,10 @@ model ExamBoard {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  posts      Post[]
-  syllabuses Syllabus[]
-  pastPapers PastPaper[]
+  posts        Post[]
+  syllabuses   Syllabus[]
+  pastPapers   PastPaper[]
+  quizAttempts QuizAttempt[]
 
   // Generated column (name + description), populated by Postgres itself —
   // Prisma can't model tsvector natively, so this is declared Unsupported
@@ -237,5 +241,56 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  quizAttempts QuizAttempt[]
+
   @@map("users")
+}
+
+// A user's attempt at a practice quiz for one ExamBoard (TAPS-5.2). There is
+// deliberately no separate Quiz/QuizSession model grouping QuizQuestion rows
+// together — a QuizAttempt IS the grouping, fixing its own `questionIds` at
+// `start()` time and referencing the ExamBoard directly rather than through
+// an intermediate "quiz" concept that has no other reason to exist yet. See
+// docs/adr/015-quiz-attempt-data-shape.md for the full reasoning.
+//
+// Lifecycle: created by POST /quiz-attempts/start with `questionIds` set and
+// `answers`/`score`/`weakTopics`/`completedAt` all null (in-progress); moved
+// to its terminal state exactly once by POST /quiz-attempts/:id/submit,
+// which fills in the remaining fields together. A non-null `completedAt` is
+// what the submit endpoint checks to reject a second submission.
+model QuizAttempt {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examBoardId String
+  examBoard   ExamBoard @relation(fields: [examBoardId], references: [id], onDelete: Restrict)
+
+  // The QuizQuestion ids selected for this attempt at start() time — fixed
+  // for the life of the attempt so a later admin edit to the question bank
+  // can't change which questions a user is scored against mid-attempt.
+  questionIds String[]
+
+  // question id -> selected option index, submitted once at submit() time.
+  // Null while in progress. A Json map (not a relation table) since it's
+  // write-once, read-back-verbatim data with no query need of its own.
+  answers Json?
+
+  // Number of correctly-answered questions; null while in progress. Paired
+  // with questionIds.length for "X out of Y" / percentage display — not
+  // stored as a percentage itself, so the raw counts are always recoverable.
+  score Int?
+
+  // Per-topic incorrect-answer tally, e.g. {"Algebra": 2, "Geometry": 1} —
+  // only topics with at least one wrong answer appear. Null while in
+  // progress. A tally (not just a list of topic names) so a future adaptive-
+  // selection feature (05-ARCHITECTURE.md §5's getAdaptiveQuiz) can weight
+  // by severity, not just presence.
+  weakTopics Json?
+
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([examBoardId])
+  @@map("quiz_attempts")
 }

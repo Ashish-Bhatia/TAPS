@@ -11,6 +11,7 @@ import { PastPaperModule } from './past-paper/past-paper.module.js';
 import { PostModule } from './post/post.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicContentModule } from './public-content/public-content.module.js';
+import { QuizAttemptModule } from './quiz-attempt/quiz-attempt.module.js';
 import { UserAuthModule } from './user-auth/user-auth.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -31,6 +32,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PastPaperModule,
     PublicContentModule,
     UserAuthModule,
+    QuizAttemptModule,
   ],
   controllers: [AppController, HealthController],
   providers: [AppService, { provide: APP_FILTER, useClass: PrismaExceptionFilter }],
