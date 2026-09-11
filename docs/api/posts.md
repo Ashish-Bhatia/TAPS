@@ -6,6 +6,11 @@ as `docs/api/exam-boards.md`.
 
 All routes: `401 Unauthorized` if the bearer token is missing/invalid/expired.
 
+**Side effect (`TAPS-3.7`):** every successful `POST`/`PATCH`/`DELETE` here revalidates
+`apps/web`'s tagged cache for the affected `examBoardId`'s post list (soft-fails if unconfigured
+or unreachable — never blocks the write itself). See
+`docs/adr/019-tag-based-cache-revalidation.md`.
+
 ## `POST /posts`
 
 - **Body:** `CreatePostDto`:

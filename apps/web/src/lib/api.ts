@@ -24,23 +24,53 @@ export function apiUrl(): string {
 }
 
 /**
+ * Cache tag names for TAPS-3.7's tag-based revalidation
+ * (docs/adr/019-tag-based-cache-revalidation.md). There's no shared package
+ * between apps/web and apps/api in this repo (a plain HTTP boundary, per
+ * 05-ARCHITECTURE.md — no `packages/*` workspace is actually used today), so
+ * apps/api's ExamBoardService/PostService construct these exact same
+ * strings independently when calling this app's `/api/revalidate` route.
+ * Keep both sides in sync by hand if this naming ever changes.
+ */
+const EXAM_BOARDS_TAG = ['exam-boards'];
+function examBoardTag(id: string): string {
+  return `exam-board-${id}`;
+}
+function postsTag(examBoardId: string): string {
+  return `posts-${examBoardId}`;
+}
+
+/**
  * Thin wrapper around fetch for the public content API
  * (docs/api/public-content.md). Callers decide their own error handling —
  * this only centralizes the base URL and JSON parsing.
  *
- * `cache: 'no-store'` — deliberately uncached, not `next: { revalidate:
- * N }`. The revalidate-based approach was tried first and found live (via
- * TAPS-3.3's exam hub page, not caught by mocked unit tests) to serve a
- * stale/empty cached response that survived full dev-server restarts and a
- * fully cleared `.next` directory — an admin-published post never appeared
- * on its board's hub page. Traced to Next.js's Data Cache, not this app's
- * code (confirmed: calling the same functions outside Next's request
- * context, via a plain Node script, returned correct data every time).
- * Switching to `cache: 'no-store'` fixed it immediately and reliably.
- * See docs/adr/007-nav-data-sourcing.md's follow-up note.
+ * Default (`tags` omitted): `cache: 'no-store'` — deliberately uncached, not
+ * `next: { revalidate: N }`. The revalidate-based approach was tried first
+ * and found live (via TAPS-3.3's exam hub page, not caught by mocked unit
+ * tests) to serve a stale/empty cached response that survived full
+ * dev-server restarts and a fully cleared `.next` directory — an
+ * admin-published post never appeared on its board's hub page. Traced to
+ * Next.js's Data Cache, not this app's code (confirmed: calling the same
+ * functions outside Next's request context, via a plain Node script,
+ * returned correct data every time). Switching to `cache: 'no-store'` fixed
+ * it immediately and reliably. See docs/adr/007-nav-data-sourcing.md's
+ * follow-up note.
+ *
+ * When `tags` IS passed: `cache: 'force-cache'` + `next: { tags }` instead —
+ * TAPS-3.7's opt-in tagged caching for genuinely static/shared content (see
+ * docs/adr/019-tag-based-cache-revalidation.md), invalidated on-demand by
+ * `apps/api`'s admin write endpoints calling this app's own
+ * `/api/revalidate` route rather than a blind time window (the exact kind
+ * of caching the paragraph above already found unsafe once). Caching is
+ * opt-in per call site deliberately — `search()`, for example, must never
+ * pass `tags` here.
  */
-export async function apiFetch<T>(path: string): Promise<T> {
-  const response = await fetch(`${apiUrl()}${path}`, { cache: 'no-store' });
+export async function apiFetch<T>(path: string, tags?: string[]): Promise<T> {
+  const response = await fetch(
+    `${apiUrl()}${path}`,
+    tags ? { cache: 'force-cache', next: { tags } } : { cache: 'no-store' },
+  );
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status} ${path}`);
   }
@@ -52,10 +82,17 @@ export async function apiFetch<T>(path: string): Promise<T> {
  * soft: an API outage must not take down the entire site's navigation.
  * Consumers get an empty list rather than a thrown error, and can render
  * accordingly (e.g. dropdown just doesn't populate yet).
+ *
+ * Tagged `exam-boards` (TAPS-3.7) — apps/api's ExamBoard admin
+ * create/update/delete endpoints revalidate this tag on write, so the nav
+ * stays live without round-tripping to apps/api on every single page.
  */
 export async function getExamBoardsForNav(): Promise<ExamBoard[]> {
   try {
-    const page = await apiFetch<Paginated<ExamBoard>>('/public/exam-boards?pageSize=100');
+    const page = await apiFetch<Paginated<ExamBoard>>(
+      '/public/exam-boards?pageSize=100',
+      EXAM_BOARDS_TAG,
+    );
     return page.data;
   } catch (error) {
     console.error('Failed to fetch exam boards for nav:', error);
@@ -71,9 +108,15 @@ export async function getExamBoardsForNav(): Promise<ExamBoard[]> {
  * fine but is silently missing its content. `null` specifically means "no
  * such exam board" (API returned 404), which the caller turns into Next's
  * notFound() rather than an error page.
+ *
+ * Tagged `exam-board-<id>` (TAPS-3.7) — apps/api's ExamBoard admin
+ * update/delete endpoints revalidate this specific board's tag on write.
  */
 export async function getExamBoard(id: string): Promise<ExamBoard | null> {
-  const response = await fetch(`${apiUrl()}/public/exam-boards/${id}`, { cache: 'no-store' });
+  const response = await fetch(`${apiUrl()}/public/exam-boards/${id}`, {
+    cache: 'force-cache',
+    next: { tags: [examBoardTag(id)] },
+  });
   if (response.status === 404) {
     return null;
   }
@@ -91,13 +134,21 @@ export async function getExamBoard(id: string): Promise<ExamBoard | null> {
  * client-side type filter (both pages rendered the same `ARTICLE`-typed
  * list). Omitted entirely by the hub page itself, which wants every post
  * for a board regardless of category.
+ *
+ * Tagged `posts-<examBoardId>` (TAPS-3.7) — apps/api's Post admin
+ * create/update/delete endpoints revalidate this tag (keyed off the post's
+ * own `examBoardId`, not the `category` query param) on write, so every
+ * variant of this call (hub page, Exam Pattern, Eligibility) sharing one
+ * board's posts is invalidated together.
  */
 export async function getPostsByExamBoard(examBoardId: string, category?: string): Promise<Post[]> {
   const params = new URLSearchParams({ examBoardId, pageSize: '100' });
   if (category) {
     params.set('category', category);
   }
-  const page = await apiFetch<Paginated<Post>>(`/public/posts?${params.toString()}`);
+  const page = await apiFetch<Paginated<Post>>(`/public/posts?${params.toString()}`, [
+    postsTag(examBoardId),
+  ]);
   return page.data;
 }
 

@@ -54,35 +54,36 @@ statically prerendered (no Request-time API reached first), and refetches on eve
 Request-time API is used earlier in the tree
 (`.../01-app/02-guides/caching-without-cache-components.md`).
 
-**Fetch-by-fetch audit — every `apps/web` → `apps/api` call:**
+**Fetch-by-fetch audit — every `apps/web` → `apps/api` call (updated by `TAPS-3.7`):**
 
-| Call site                                                                                  | Option              | Verdict               |
-| ------------------------------------------------------------------------------------------ | ------------------- | --------------------- |
-| `apiFetch()` (`lib/api.ts`) — backs `getExamBoardsForNav`, `getPostsByExamBoard`, `search` | `cache: 'no-store'` | Dynamic, correctly so |
-| `getExamBoard()`'s standalone fetch (`lib/api.ts`)                                         | `cache: 'no-store'` | Dynamic, correctly so |
+| Call site                                                                  | Option                                | Verdict                                         |
+| -------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------- |
+| `apiFetch()` (`lib/api.ts`) — backs `search`                               | `cache: 'no-store'`                   | Dynamic, correctly so — a live user query       |
+| `getExamBoardsForNav` (via `apiFetch()`)                                   | `force-cache` + tag `exam-boards`     | Cached, tag-revalidated (`TAPS-3.7`)            |
+| `getExamBoard()`'s standalone fetch                                        | `force-cache` + tag `exam-board-<id>` | Cached, tag-revalidated (`TAPS-3.7`)            |
+| `getPostsByExamBoard` (via `apiFetch()`)                                   | `force-cache` + tag `posts-<boardId>` | Cached, tag-revalidated (`TAPS-3.7`)            |
+| `getSyllabusByExamBoard`/`getPastPapersByExamBoard`/`getAllStudyMaterials` | `cache: 'no-store'`                   | Dynamic, correctly so — out of TAPS-3.7's scope |
 
-A repo-wide search confirmed these are the _only_ two `fetch()` call sites in `apps/web/src` —
-every page goes through one of them, none fetches `apps/api` directly, and no page/layout exports
-a `revalidate`, `dynamic`, or `fetchCache` route segment config. **0 of these are caching when
-they should be dynamic** — there is no stale-content risk today; every response is live. No code
-changes were needed.
+A repo-wide search confirmed these are the _only_ two `fetch()` call sites in `apps/web/src`
+(`apiFetch()` and `getExamBoard`'s standalone one) — every page goes through one of them, none
+fetches `apps/api` directly, and no page/layout exports a `revalidate`, `dynamic`, or `fetchCache`
+route segment config.
 
-**Is `cache: 'no-store'` still the right call?** Yes, confirmed rather than assumed. Even though
-Next 16's own bare default is now "not cached" in the loose sense above, it still differs from
-`no-store` in the one way that matters here: the bare default serves a build-time snapshot on
-every request for any route Next can statically prerender — exactly the kind of caching that made
-a just-published `Post` invisible in ADR-008's original bug. Only explicit `cache: 'no-store'`
-guarantees a live round-trip on every production request, so ADR-008's decision stands unchanged.
+**Is `cache: 'no-store'` still the right call for what's still uncached?** Yes, confirmed rather
+than assumed, for the same reason as before: Next 16's bare default still serves a build-time
+snapshot on any route it can statically prerender, which is exactly the kind of caching that made
+a just-published `Post` invisible in ADR-008's original bug. `search`, `getSyllabusByExamBoard`,
+`getPastPapersByExamBoard`, and `getAllStudyMaterials` all stay `no-store` — none of them were in
+`TAPS-3.7`'s scope (genuinely static/shared nav + board detail/posts only), and `search`
+specifically must never be cached at all, tagged or not.
 
-**The real, still-open cost — dynamic where it could safely cache:** every request, including
-fully static placeholder pages (`/about`, `/privacy`, etc. — see `ComingSoon.tsx`), round-trips to
-`apps/api` because the root layout's nav fetch (`getExamBoardsForNav`) is uncached on _every_
-page. This is unnecessary DB load, not a correctness bug, and it's the same trade-off ADR-008
-already named and accepted deliberately — not a new finding. Reintroducing caching safely for this
-means tag-based invalidation (`next.tags` + `revalidateTag`) fired from `apps/api`'s admin write
-endpoints on `ExamBoard`/`Post` writes, which needs `apps/api` to call back into `apps/web` (a new
-authenticated revalidation route + cross-service wiring) — non-trivial and out of this
-investigation's scope. Filed as `TAPS-3.7` (`docs/backlog/BACKLOG.md`), not fixed here.
+**The gap this closes:** previously, every request — including fully static placeholder pages
+(`/about`, `/privacy`, etc.) — round-tripped to `apps/api` because the root layout's nav fetch
+(`getExamBoardsForNav`) was uncached on _every_ page. `TAPS-3.7`
+(`docs/adr/019-tag-based-cache-revalidation.md`) closes this with tag-based invalidation
+(`next.tags` + `revalidateTag`) fired from `apps/api`'s `ExamBoard`/`Post` admin write endpoints,
+via a new authenticated `POST /api/revalidate` route on this app plus the cross-service wiring on
+`apps/api`'s side — built as described in that ADR, not left open.
 
 **Guidance for `EPIC 5`'s upcoming user-specific dashboard/quiz-attempt pages:** nothing needs to
 change defensively before `EPIC 5` lands — every current fetch already re-fetches live on every

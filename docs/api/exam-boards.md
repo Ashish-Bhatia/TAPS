@@ -7,6 +7,11 @@ backlog — see `docs/backlog/BACKLOG.md`).
 
 All routes: `401 Unauthorized` if the bearer token is missing/invalid/expired.
 
+**Side effect (`TAPS-3.7`):** every successful `POST`/`PATCH`/`DELETE` here revalidates
+`apps/web`'s tagged `exam-boards`/`exam-board-<id>` caches (soft-fails if unconfigured or
+unreachable — never blocks the write itself). See
+`docs/adr/019-tag-based-cache-revalidation.md`.
+
 ## `POST /exam-boards`
 
 - **Body:** `CreateExamBoardDto` — `{ name: string, type: 'TEACHING' | 'TET', description: string }`
