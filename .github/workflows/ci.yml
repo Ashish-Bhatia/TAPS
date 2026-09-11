@@ -21,6 +21,15 @@ concurrency:
 # `CI`) — keep the `name:` above as `CI` if renaming, and note the overall run only
 # reports success once every job below has passed, same semantics as the single job it
 # replaces.
+#
+# `develop`'s branch protection requires a status check literally named `CI` — that
+# used to be this workflow's one job (`lint-and-test`'s `name: CI`). Splitting into
+# four differently-named jobs made that required check never report, which blocked
+# merging this very split (discovered via a real failed `gh pr merge` attempt, not
+# guessed in advance). The `ci` job below is a lightweight aggregator — `needs:` all
+# four real jobs, so it only succeeds once they all do — that exists purely to keep
+# that required-check name alive; the per-app jobs above are still what actually run
+# the work and what shows individually in the PR checks list.
 jobs:
   api:
     name: api (lint + test)
@@ -75,3 +84,13 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run format:check
+
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    needs: [api, web, mobile, format]
+    if: always()
+    steps:
+      - name: Fail if any job failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
