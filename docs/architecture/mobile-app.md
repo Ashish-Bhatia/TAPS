@@ -55,3 +55,11 @@ step, no CI workflow change needed. `src/lib/api.test.ts` covers `apiUrl`'s env-
 mocked `fetch`, same style as `apps/web/src/lib/api.test.ts`. This closes `TAPS-1.11`'s
 long-standing gap ("`apps/mobile` has no test script and no test tooling at all") for this
 workspace.
+
+`app/index.test.tsx`/`app/exam-boards/[id].test.tsx` go one level further: `expo-router/testing-
+library`'s `renderRouter` mounts the actual route files through the real route table (real
+navigation, real `useLocalSearchParams`), asserting on real rendered text from a mocked `fetch` —
+proof the screens themselves, not just `api.ts`, correctly turn a response into visible content.
+See ADR 022 for why this stays mocked rather than hitting the real API inside Jest (RN's Jest
+preset mocks networking at the native-module layer; two independent attempts to route around that
+both failed) and where the corresponding live verification actually happened instead.

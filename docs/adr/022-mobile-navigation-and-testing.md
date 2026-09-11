@@ -65,6 +65,25 @@ run test --workspace=mobile --if-present` — no CI workflow change needed.
   a `cancelled` flag guarding against a stale response landing after unmount/re-fetch, and any
   user-triggered reset (e.g. a retry button) done in the event handler instead of a shared function
   the effect also calls. See `app/index.tsx`/`app/exam-boards/[id].tsx`'s inline comments.
+- **`expo-router/testing-library`'s `renderRouter`** (`@testing-library/react-native` added as the
+  peer it requires — pinned alongside an explicit `react-test-renderer@19.2.3` devDependency; the
+  latest `@testing-library/react-native` otherwise pulls a fresh `react-test-renderer@19.3.0`,
+  which wants `react@^19.3.0` and conflicts with SDK 57's pinned `react@19.2.3`) renders the actual
+  route files (`app/index.tsx`, `app/exam-boards/[id].tsx`) through the real route table, not a
+  standalone component mount — `app/index.test.tsx`/`app/exam-boards/[id].test.tsx` assert on real
+  rendered text from a mocked `fetch`, the render-level counterpart to `src/lib/api.test.ts`'s
+  data-layer tests.
+  - **Investigated, and rejected: rendering these same routes against the real deployed API inside
+    Jest**, to get stronger evidence than a plain data-layer check. Two genuinely different attempts
+    both failed for the same underlying reason — React Native's Jest preset mocks networking at the
+    native-module layer, by design, for hermetic component tests: (1) the default RN `fetch`
+    polyfill under `jest-expo` resolves without throwing but returns a response with no real status
+    or body; (2) overriding `globalThis.fetch` with `undici`'s real implementation gets past that —
+    a genuine `200` status came back from the real `taps-api.fly.dev` — but the response body never
+    resolves (`r.text()` hangs past a 15s timeout), with no further variation available inside this
+    preset's environment worth a third attempt (loop-prevention rule 1). Live verification of the
+    exact code path these render tests exercise was therefore done separately, outside Jest — see
+    `docs/backlog/BACKLOG.md`'s `TAPS-6.1` row for that evidence and what it does/doesn't cover.
 - **Numbering note:** this is ADR **022**, not **021** — `021` was already taken by
   `021-db-aware-readiness-check.md` (`TAPS-2.7`, Sprint 5) by the time this story started. The
   original sprint-planning instruction named `021-mobile-auth-token-storage.md` for `TAPS-6.2`;
