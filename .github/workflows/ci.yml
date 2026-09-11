@@ -10,28 +10,87 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Split into one job per app (TAPS-1.18) instead of a single lint-and-test job — each
+# app's pass/fail shows separately in the PR checks list and commit status, so "web is
+# broken" no longer hides behind an aggregate "CI failed" that requires opening the log
+# to find out which app actually failed. Every job needs its own full `npm ci`: this is
+# an npm-workspaces monorepo with a single root lockfile, so there's no way to install
+# just one workspace's dependencies.
+#
+# TAPS-1.22's deploy-api.yml triggers on this workflow's completion (workflow_run on
+# `CI`) — keep the `name:` above as `CI` if renaming, and note the overall run only
+# reports success once every job below has passed, same semantics as the single job it
+# replaces.
+#
+# `develop`'s branch protection requires a status check literally named `CI` — that
+# used to be this workflow's one job (`lint-and-test`'s `name: CI`). Splitting into
+# four differently-named jobs made that required check never report, which blocked
+# merging this very split (discovered via a real failed `gh pr merge` attempt, not
+# guessed in advance). The `ci` job below is a lightweight aggregator — `needs:` all
+# four real jobs, so it only succeeds once they all do — that exists purely to keep
+# that required-check name alive; the per-app jobs above are still what actually run
+# the work and what shows individually in the PR checks list.
 jobs:
-  lint-and-test:
-    name: CI
+  api:
+    name: api (lint + test)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
+      - run: npm ci
+      - run: npm run lint --workspace=api
+      - run: npm run test --workspace=api
 
-      - name: Install dependencies (all workspaces)
-        run: npm ci
+  web:
+    name: web (lint + test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint --workspace=web
+      - run: npm run test --workspace=web
 
-      - name: Lint (every workspace with a lint script)
-        run: npm run lint --workspaces --if-present
+  mobile:
+    name: mobile (lint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint --workspace=mobile
+      # No `test` script exists for apps/mobile yet (TAPS-1.11 tracks that gap) —
+      # --if-present so this job doesn't start failing the moment one is added
+      # without this workflow being touched, and doesn't fail today either.
+      - run: npm run test --workspace=mobile --if-present
 
-      - name: Test (every workspace with a test script)
-        run: npm run test --workspaces --if-present
+  format:
+    name: format (repo-wide)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run format:check
 
-      - name: Format check
-        run: npm run format:check
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    needs: [api, web, mobile, format]
+    if: always()
+    steps:
+      - name: Fail if any job failed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
