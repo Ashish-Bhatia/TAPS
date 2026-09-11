@@ -54,6 +54,20 @@ containing only the real, intended change and apply it with `prisma migrate depl
 to need the hand-write path whenever a change touches (or merely coexists with) a table that has a
 generated column.
 
+**Once a migration name has ever had a failed row in `_prisma_migrations`, `migrate dev` refuses
+that database forever, even after `migrate resolve --rolled-back` and even with `--create-only`**
+(confirmed while adding `TAPS-3.8`'s `Post.category` column): it still prints `The migration
+<name> was modified after it was applied` / `We need to reset the "public" schema... All data
+will be lost`, and running `migrate resolve --rolled-back` again is a harmless no-op (the row's
+`rolled_back_at` was already set) that does not clear the block. This looks like `migrate dev`'s
+drift check comparing the _first_ `_prisma_migrations` row for a given name against the current
+file, rather than filtering out rolled-back rows — the successful retry's own checksum matches the
+file exactly, so the schema itself is not actually drifted (`migrate status` correctly reports "up
+to date" throughout). Do not run `migrate reset` to clear this — it drops all data and is not
+necessary. Once a database has hit this, treat `migrate dev` as permanently unusable against it
+for any future migration: always use the hand-write path above (`migrate diff --script`, or write
+the SQL yourself for a simple change) and apply with `migrate deploy`.
+
 ## Applying existing migrations to Neon (what actually ran for the first migration)
 
 ```bash

@@ -30,7 +30,7 @@ describe('PublicPostsController', () => {
 
     await controller.findAll(query);
 
-    expect(serviceMock.findAll).toHaveBeenCalledWith(query, 'board-1');
+    expect(serviceMock.findAll).toHaveBeenCalledWith(query, 'board-1', undefined);
   });
 
   it('findAll works with no examBoardId (unfiltered listing)', async () => {
@@ -40,6 +40,16 @@ describe('PublicPostsController', () => {
 
     await controller.findAll(query);
 
-    expect(serviceMock.findAll).toHaveBeenCalledWith(query, undefined);
+    expect(serviceMock.findAll).toHaveBeenCalledWith(query, undefined, undefined);
+  });
+
+  it('findAll passes the category query param through to the service (TAPS-3.8)', async () => {
+    const page = { data: [], page: 1, pageSize: 20, total: 0, totalPages: 0 };
+    serviceMock.findAll.mockResolvedValue(page);
+    const query = { page: 1, pageSize: 20, category: 'eligibility' };
+
+    await controller.findAll(query);
+
+    expect(serviceMock.findAll).toHaveBeenCalledWith(query, undefined, 'eligibility');
   });
 });

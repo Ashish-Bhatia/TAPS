@@ -87,6 +87,15 @@ model Post {
   examBoardId String?
   examBoard   ExamBoard? @relation(fields: [examBoardId], references: [id], onDelete: SetNull)
   type        PostType
+  // Free-form, nullable classification (TAPS-3.8) — e.g. "exam-pattern",
+  // "eligibility" — so apps/web's per-board sub-pages can filter to
+  // genuinely distinct content instead of all sharing the same
+  // ARTICLE-typed list. Deliberately a plain String, not an enum: the set
+  // of categories is expected to grow as more sub-pages/content types are
+  // added, and a String lets admins introduce a new category by simply
+  // tagging a post with it, without a schema migration for every addition.
+  // See docs/adr/013-post-category-field.md.
+  category    String?
   title       String
   slug        String     @unique
   body        String     @db.Text
@@ -100,7 +109,9 @@ model Post {
 
   // slug's uniqueness above already indexes it; examBoardId is indexed
   // separately since it's an optional FK many posts will filter/join on.
+  // category is indexed too, now that the public API filters on it.
   @@index([examBoardId])
+  @@index([category])
   @@map("posts")
 }
 
