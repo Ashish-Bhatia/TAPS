@@ -1,8 +1,9 @@
 # `apps/mobile` — App Structure & Navigation
 
-Covers `TAPS-6.1`. Expo SDK 57, Expo Router (`app/` directory). See
+Covers `TAPS-6.1`/`TAPS-6.2`. Expo SDK 57, Expo Router (`app/` directory). See
 `docs/adr/022-mobile-navigation-and-testing.md` for why Expo Router (not bare React Navigation) and
-`jest-expo` (not Vitest, despite `apps/web`/`apps/api`'s use of it) were chosen, and
+`jest-expo` (not Vitest, despite `apps/web`/`apps/api`'s use of it) were chosen,
+`docs/adr/023-mobile-auth-token-storage.md` for the `expo-secure-store` decision, and
 `docs/adr/018-mobile-export-platform-scope.md` for why this app has no web target.
 
 ## Layout & navigation
@@ -21,6 +22,23 @@ Covers `TAPS-6.1`. Expo SDK 57, Expo Router (`app/` directory). See
   are a separate future story, not built here.
 - `app.json`'s `experiments.typedRoutes: true` — Expo Router generates typed `href`s for the routes
   above, so `Link`/`useLocalSearchParams` calls are checked against the real route table by `tsc`.
+- `app/account.tsx`, `app/login.tsx` (`TAPS-6.2`) — the authenticated area's entry point. A header
+  `Account` link (`app/_layout.tsx`'s shared `screenOptions.headerRight`) is visible on every
+  screen; `/account` shows the logged-in email + a logout button, or a link to `/login` when
+  logged out.
+
+## Authentication (`TAPS-6.2`)
+
+`src/lib/auth.ts` calls `POST /user-auth/login` (`docs/api/user-auth.md`) directly from the device —
+no server-to-server proxy like `apps/web`'s Route Handlers, since there's no cross-domain cookie
+problem for a native app to route around. On success it persists `{ accessToken, email }` via
+`expo-secure-store` (OS-level encrypted storage — see ADR 023 for why, over the more commonly
+reached-for `AsyncStorage`, which persists as plaintext). `src/lib/AuthContext.tsx`'s `AuthProvider`
+wraps the whole app (`app/_layout.tsx`) and restores this on mount, exposing
+`status`/`email`/`token`/`login`/`logout` to every screen via `useAuth()` — `TAPS-6.3`/`6.4`'s
+screens gate on this rather than each re-reading `expo-secure-store` independently, and reuse
+`src/lib/auth.ts`'s `apiFetchAuthed` (mirroring `apps/web/src/lib/api.ts`'s helper of the same name)
+for their own authenticated fetches.
 
 ## Data fetching
 
@@ -56,10 +74,23 @@ mocked `fetch`, same style as `apps/web/src/lib/api.test.ts`. This closes `TAPS-
 long-standing gap ("`apps/mobile` has no test script and no test tooling at all") for this
 workspace.
 
-`app/index.test.tsx`/`app/exam-boards/[id].test.tsx` go one level further: `expo-router/testing-
-library`'s `renderRouter` mounts the actual route files through the real route table (real
-navigation, real `useLocalSearchParams`), asserting on real rendered text from a mocked `fetch` —
-proof the screens themselves, not just `api.ts`, correctly turn a response into visible content.
-See ADR 022 for why this stays mocked rather than hitting the real API inside Jest (RN's Jest
-preset mocks networking at the native-module layer; two independent attempts to route around that
-both failed) and where the corresponding live verification actually happened instead.
+`__tests__/index.test.tsx`, `__tests__/exam-boards/[id].test.tsx`, `__tests__/login.test.tsx`,
+`__tests__/account.test.tsx` go one level further: `expo-router/testing-library`'s `renderRouter`
+mounts the actual route files through the real route table (real navigation, real
+`useLocalSearchParams`), asserting on real rendered text from a mocked `fetch`/`expo-secure-store` —
+proof the screens themselves, not just `api.ts`/`auth.ts`, correctly turn a response into visible
+content. See ADR 022 for why this stays mocked rather than hitting the real API inside Jest (RN's
+Jest preset mocks networking at the native-module layer; independent attempts to route around that
+all failed) and where the corresponding live verification actually happened instead.
+
+**These live in `apps/mobile/__tests__/`, not colocated inside `app/`** — despite every other test
+in this repo being colocated `*.test.ts(x)` next to what it tests (`06-CODING-STANDARDS.md`). Expo
+Router's own docs are explicit that test files must never live inside `app/` (every file there is
+route-discoverable), and `TAPS-6.2` found out why the hard way: `TAPS-6.1`'s colocated render tests
+had silently broken `npx expo export` on `develop` since their own commit, because
+`expo-router/testing-library`'s Node-only `import "path"` got pulled into the app's route graph.
+See ADR 023's writeup. `renderRouter`'s first argument (`'./app'` in every file) resolves from the
+Jest process's root directory (`apps/mobile`), not from the test file's own location — confirmed by
+testing it, not assumed — so it's identical across every file in `__tests__/` regardless of nesting.
+`src/lib/*.test.ts` (`api.test.ts`, `auth.test.ts` — no route files involved) stay colocated as
+before; only route-rendering tests need to live outside `app/`.
