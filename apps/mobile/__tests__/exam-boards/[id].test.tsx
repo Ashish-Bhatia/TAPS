@@ -1,5 +1,34 @@
 import { renderRouter, screen, waitFor } from 'expo-router/testing-library';
 
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- matching jest.mock's own factory above
+const mockedSecureStore = require('expo-secure-store') as { getItemAsync: jest.Mock };
+
+const boardFetchMock = (url: string) => {
+  if (url.includes('/public/exam-boards/')) {
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          id: 'board-1',
+          name: 'CTET',
+          type: 'TET',
+          description: 'Central Teacher Eligibility Test',
+        }),
+    });
+  }
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve({ data: [], page: 1, pageSize: 100, total: 0, totalPages: 0 }),
+  });
+};
+
 // Same rationale as app/index.test.tsx: renders the actual
 // app/exam-boards/[id].tsx route, navigated to via a real initialUrl (so
 // useLocalSearchParams() gets its `id` from the real router, not a manual
@@ -9,6 +38,7 @@ describe('app/exam-boards/[id].tsx (exam board detail screen)', () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    jest.clearAllMocks();
   });
 
   it('renders the board info and its posts from a successful fetch', async () => {
@@ -63,5 +93,28 @@ describe('app/exam-boards/[id].tsx (exam board detail screen)', () => {
     renderRouter('./app', { initialUrl: '/exam-boards/does-not-exist' });
 
     await waitFor(() => expect(screen.getByText('No exam board with this id.')).toBeTruthy());
+  });
+
+  // TAPS-6.3: the "Practice quiz" entry point's auth-gated state.
+  it('shows a "Practice quiz" link to the quiz screen when logged in', async () => {
+    mockedSecureStore.getItemAsync.mockResolvedValue(
+      JSON.stringify({ accessToken: 'a.b.c', email: 'user@example.com' }),
+    );
+    globalThis.fetch = jest.fn(boardFetchMock) as unknown as typeof fetch;
+
+    renderRouter('./app', { initialUrl: '/exam-boards/board-1' });
+
+    await waitFor(() => expect(screen.getByTestId('start-quiz-button')).toBeTruthy());
+    expect(screen.getByText('Practice quiz')).toBeTruthy();
+  });
+
+  it('shows a login prompt instead of the quiz link when logged out', async () => {
+    mockedSecureStore.getItemAsync.mockResolvedValue(null);
+    globalThis.fetch = jest.fn(boardFetchMock) as unknown as typeof fetch;
+
+    renderRouter('./app', { initialUrl: '/exam-boards/board-1' });
+
+    await waitFor(() => expect(screen.getByTestId('start-quiz-button')).toBeTruthy());
+    expect(screen.getByText('Log in to take a practice quiz')).toBeTruthy();
   });
 });

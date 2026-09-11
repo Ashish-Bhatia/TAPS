@@ -1,8 +1,9 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { getExamBoard, getPostsByExamBoard } from '../../src/lib/api';
+import { useAuth } from '../../src/lib/AuthContext';
 import type { ExamBoard, Post } from '../../src/lib/types';
 
 // Exam board detail screen (TAPS-6.1) — GET /public/exam-boards/:id +
@@ -13,6 +14,7 @@ import type { ExamBoard, Post } from '../../src/lib/types';
 // the board's own info plus its published posts only.
 export default function ExamBoardDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { status } = useAuth();
 
   const [examBoard, setExamBoard] = useState<ExamBoard | null | undefined>(undefined);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -87,6 +89,22 @@ export default function ExamBoardDetailScreen() {
           <Text style={styles.type}>{examBoard.type === 'TEACHING' ? 'Teaching Exam' : 'TET'}</Text>
           <Text style={styles.title}>{examBoard.name}</Text>
           <Text style={styles.description}>{examBoard.description}</Text>
+          {status === 'authenticated' ? (
+            <Link
+              href={{ pathname: '/quiz/[examBoardId]', params: { examBoardId: examBoard.id } }}
+              asChild
+            >
+              <Pressable testID="start-quiz-button" style={styles.quizButton}>
+                <Text style={styles.quizButtonText}>Practice quiz</Text>
+              </Pressable>
+            </Link>
+          ) : status === 'unauthenticated' ? (
+            <Link href="/login" asChild>
+              <Pressable testID="start-quiz-button" style={styles.quizButton}>
+                <Text style={styles.quizButtonText}>Log in to take a practice quiz</Text>
+              </Pressable>
+            </Link>
+          ) : null}
         </View>
       }
       ListEmptyComponent={
@@ -132,6 +150,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#52525b',
     marginTop: 8,
+  },
+  quizButton: {
+    marginTop: 16,
+    backgroundColor: '#18181b',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  quizButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
   },
   postCard: {
     borderWidth: 1,

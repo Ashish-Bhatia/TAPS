@@ -1,6 +1,6 @@
 # `apps/mobile` — App Structure & Navigation
 
-Covers `TAPS-6.1`/`TAPS-6.2`. Expo SDK 57, Expo Router (`app/` directory). See
+Covers `TAPS-6.1`/`TAPS-6.2`/`TAPS-6.3`. Expo SDK 57, Expo Router (`app/` directory). See
 `docs/adr/022-mobile-navigation-and-testing.md` for why Expo Router (not bare React Navigation) and
 `jest-expo` (not Vitest, despite `apps/web`/`apps/api`'s use of it) were chosen,
 `docs/adr/023-mobile-auth-token-storage.md` for the `expo-secure-store` decision, and
@@ -40,6 +40,27 @@ screens gate on this rather than each re-reading `expo-secure-store` independent
 `src/lib/auth.ts`'s `apiFetchAuthed` (mirroring `apps/web/src/lib/api.ts`'s helper of the same name)
 for their own authenticated fetches.
 
+## Quiz-taking (`TAPS-6.3`)
+
+`src/lib/quiz.ts` — `startQuiz(examBoardId, token)` (`POST /quiz-attempts/start`) and
+`submitQuiz(attemptId, answers, token)` (`POST /quiz-attempts/:id/submit`, `docs/api/quiz-
+attempts.md`). No `apps/web` equivalent to mirror — `apps/web` never built a quiz-taking UI, only
+`TAPS-5.1`'s auth API and `TAPS-5.3`'s read-only dashboard consume this data on that side — so this
+module's shape is new. There is no `GET /quiz-attempts/:id` to re-fetch an in-progress attempt, so
+`app/quiz/[examBoardId].tsx` holds the questions `start` returns in its own local state (a `Phase`
+discriminated union: `starting → answering → submitting → submitted`, or `error` from any step) for
+the life of the attempt, rather than treating them as re-fetchable data — a direct consequence of
+the API's own shape (`docs/adr/015-quiz-attempt-data-shape.md`), not a choice made here.
+
+Entry point: a "Practice quiz" button in `app/exam-boards/[id].tsx`'s header, gated on
+`useAuth().status` exactly like `TAPS-6.3` gates the quiz screen itself — logged in links to
+`/quiz/[examBoardId]`, logged out links to `/login` instead. **Order matters in the quiz screen's
+own render logic**: `status === 'unauthenticated'` is checked _before_ `phase.kind === 'starting'`,
+because the quiz-starting effect deliberately returns early without ever changing `phase` when
+logged out (there's nothing to start) — checking the loading spinner first would leave a logged-out
+visitor stuck on a spinner forever. A real render test (`__tests__/quiz.test.tsx`) caught this
+ordering bug before merge, not in production.
+
 ## Data fetching
 
 `src/lib/api.ts` — `apiUrl()` reads `EXPO_PUBLIC_API_URL` (Expo's client-env prefix, mirroring
@@ -74,8 +95,11 @@ mocked `fetch`, same style as `apps/web/src/lib/api.test.ts`. This closes `TAPS-
 long-standing gap ("`apps/mobile` has no test script and no test tooling at all") for this
 workspace.
 
+`src/lib/quiz.test.ts` (`TAPS-6.3`) covers `startQuiz`/`submitQuiz`'s request shape and
+401/other-non-OK handling the same way.
+
 `__tests__/index.test.tsx`, `__tests__/exam-boards/[id].test.tsx`, `__tests__/login.test.tsx`,
-`__tests__/account.test.tsx` go one level further: `expo-router/testing-library`'s `renderRouter`
+`__tests__/account.test.tsx`, `__tests__/quiz.test.tsx` go one level further: `expo-router/testing-library`'s `renderRouter`
 mounts the actual route files through the real route table (real navigation, real
 `useLocalSearchParams`), asserting on real rendered text from a mocked `fetch`/`expo-secure-store` —
 proof the screens themselves, not just `api.ts`/`auth.ts`, correctly turn a response into visible
@@ -92,5 +116,5 @@ had silently broken `npx expo export` on `develop` since their own commit, becau
 See ADR 023's writeup. `renderRouter`'s first argument (`'./app'` in every file) resolves from the
 Jest process's root directory (`apps/mobile`), not from the test file's own location — confirmed by
 testing it, not assumed — so it's identical across every file in `__tests__/` regardless of nesting.
-`src/lib/*.test.ts` (`api.test.ts`, `auth.test.ts` — no route files involved) stay colocated as
-before; only route-rendering tests need to live outside `app/`.
+`src/lib/*.test.ts` (`api.test.ts`, `auth.test.ts`, `quiz.test.ts` — no route files involved) stay
+colocated as before; only route-rendering tests need to live outside `app/`.
