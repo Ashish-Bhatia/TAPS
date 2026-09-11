@@ -36,6 +36,12 @@ The `GITHUB_TOKEN`-shadowing row is real, not hypothetical: this exact checklist
 it proactively, at the start of the sprint, instead of it being discovered mid-story while trying
 to read/write repo security settings for `TAPS-1.24`.
 
+**Recorded decision, not a silent gap:** the same protection-endpoint check shows
+`required_pull_request_reviews.required_approving_review_count: 0` on both `main` and `develop`.
+This is deliberate for a 2-person team, not an unexamined hole — code review happens via chat
+approval plus the PR description, gated by the sandbox's per-PR merge-confirmation rule (every
+`gh pr merge` requires an explicit go-ahead), rather than through GitHub's numeric reviewer count.
+
 ## What shipped
 
 | Story       | PR(s)                                                                                                                                                     | Summary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
