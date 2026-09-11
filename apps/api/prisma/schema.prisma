@@ -6,9 +6,10 @@
 // for that and the other schema decisions (id strategy, delete behavior,
 // indexing) made while translating the architecture doc into a real schema.
 //
-// User, QuizQuestion, QuizAttempt, StudyPlan from the same §4 list belong to
+// QuizQuestion, QuizAttempt, StudyPlan from the same §4 list belong to
 // EPIC 4/5/7/8 and are intentionally out of scope for this sprint (see
-// docs/architecture/data-model.md).
+// docs/architecture/data-model.md). `User` was added by TAPS-5.1 — see the
+// model below and docs/adr/014-user-auth-separate-from-admin-auth.md.
 
 generator client {
   provider = "prisma-client-js"
@@ -216,4 +217,25 @@ model Book {
   @@index([subject])
   @@index([class])
   @@map("books")
+}
+
+// End-user accounts (TAPS-5.1) — a deliberately separate identity from the
+// single shared admin credential in AuthService/ADMIN_PASSWORD_HASH (see
+// docs/adr/005-admin-auth-and-validation.md and, for why the two are never
+// merged, docs/adr/014-user-auth-separate-from-admin-auth.md). Consumed by
+// apps/api/src/user-auth/, not apps/api/src/auth/.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  // Exam board names/IDs the user is preparing for — a free-form String[]
+  // per 05-ARCHITECTURE.md §4's original description, not an FK relation to
+  // ExamBoard. TAPS-5.1's scope is auth only; whichever future story builds
+  // the progress dashboard decides how this list is populated/validated.
+  examTargets  String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
 }

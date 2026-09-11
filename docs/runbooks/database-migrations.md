@@ -68,6 +68,17 @@ necessary. Once a database has hit this, treat `migrate dev` as permanently unus
 for any future migration: always use the hand-write path above (`migrate diff --script`, or write
 the SQL yourself for a simple change) and apply with `migrate deploy`.
 
+**Confirmed recurring exactly as documented, `TAPS-5.1` (adding `User`):** `migrate dev
+--create-only` refused with the identical `The migration 20260911004930_add_pastpaper_extraction_
+fields was modified after it was applied` / reset-required message, on the first attempt, with no
+new investigation needed — this is now the third story in a row (`TAPS-3.8`, `TAPS-4.0`'s residue
+itself, `TAPS-5.1`) where the documented hand-write path was applied directly instead of
+re-deriving it. Also reconfirmed while doing so: `migrate diff --script` still includes the same
+spurious `searchVector`-related `DROP INDEX`/`ALTER COLUMN ... DROP DEFAULT` statements against
+`exam_boards`/`posts` even for a diff that only adds an unrelated new table — always read the diff
+output and hand-write the migration file with only the real change, never apply the raw diff
+verbatim on this schema.
+
 ## Applying existing migrations to Neon (what actually ran for the first migration)
 
 ```bash

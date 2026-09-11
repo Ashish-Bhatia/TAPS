@@ -57,7 +57,11 @@
     ADR 010.
 - `StudyMaterial` (id, subject, title, fileUrl)
 - `Book` (id, class, subject, title, fileUrl)
-- `User` (id, email, name, examTargets[], createdAt)
+- `User` (id, email, passwordHash, name?, examTargets[], createdAt, updatedAt) — implemented by
+  `TAPS-5.1`. Auth (registration/login) lives in `apps/api/src/user-auth/`, deliberately separate
+  from the admin CMS auth in `apps/api/src/auth/` (different identity source, JWT signing secret,
+  guard, and claim shape) — see `docs/adr/014-user-auth-separate-from-admin-auth.md` and
+  `docs/api/user-auth.md`.
 - `QuizQuestion` (id, pastPaperId, subject, topic, difficulty[EASY|MEDIUM|HARD], questionText,
   options[], correctOption, explanation, aiGenerated, reviewedByAdmin, createdAt) — populated by
   `AIService.generateQuizFromPaper` (`TAPS-4.1`), see ADR 011.
