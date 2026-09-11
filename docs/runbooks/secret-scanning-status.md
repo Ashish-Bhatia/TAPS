@@ -1,16 +1,20 @@
 # Runbook — GitHub secret scanning & push protection status (`TAPS-1.24`)
 
-## Current state (verified 2026-09-11 via `gh api repos/Ashish-Bhatia/TAPS`)
+**Status: closed as Done, 2026-09-11** — 3/5 settings enabled and verified; the remaining 2 are a
+documented, accepted platform limitation, not an open gap. Kept as a reference so this doesn't get
+re-investigated as a mystery later.
 
-| Setting                                 | Status      | How verified                                                                                                |
-| --------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------- |
-| `secret_scanning`                       | ✅ Enabled  | `gh api` read, real, after enabling via `PATCH`                                                             |
-| `secret_scanning_push_protection`       | ✅ Enabled  | `gh api` read, real, after enabling via `PATCH`                                                             |
-| `dependabot_security_updates`           | ✅ Enabled  | `gh api` read + corroborated live: a real `git push` printed GitHub's own "18 vulnerabilities found" notice |
-| `secret_scanning_non_provider_patterns` | ❌ Disabled | 2 real `PATCH` attempts, both left it disabled — see below                                                  |
-| `secret_scanning_validity_checks`       | ❌ Disabled | 2 real `PATCH` attempts, both left it disabled — see below                                                  |
+## Final state (secret_scanning/push_protection/dependabot verified directly in the GitHub UI by Ashish; validity_checks/non_provider_patterns confirmed absent from the UI, also by Ashish)
 
-## A real gotcha hit while doing this: `GITHUB_TOKEN` shadowed `gh`'s own credential
+| Setting                                 | Status                                | How verified                                                                               |
+| --------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `secret_scanning`                       | ✅ Enabled                            | `gh api` + confirmed live in Settings → Code security UI                                   |
+| `secret_scanning_push_protection`       | ✅ Enabled                            | `gh api` + confirmed live in UI + a real blocked push (see below)                          |
+| `dependabot_security_updates`           | ✅ Enabled                            | `gh api` + corroborated live: a real `git push` printed GitHub's own vulnerability notice  |
+| `secret_scanning_non_provider_patterns` | 🚫 Not available on this account tier | Confirmed absent from the Settings UI entirely — not greyed out, not gated, just not there |
+| `secret_scanning_validity_checks`       | 🚫 Not available on this account tier | Confirmed absent from the Settings UI entirely — not greyed out, not gated, just not there |
+
+## A real gotcha hit while investigating this: `GITHUB_TOKEN` shadowed `gh`'s own credential
 
 `gh api repos/Ashish-Bhatia/TAPS --jq '.security_and_analysis'` returned nothing at all — not
 `false`, not an error, just an empty/absent field — until the ambient `GITHUB_TOKEN` env var
@@ -20,68 +24,47 @@ credential and returned real data. **This is exactly the failure mode `TAPS-1.25
 checklist is meant to catch proactively** — this is now a confirmed live instance of it, not a
 hypothetical.
 
-## BLOCKED: `secret_scanning_non_provider_patterns` / `secret_scanning_validity_checks` won't enable
+## RESOLVED: `secret_scanning_non_provider_patterns` / `secret_scanning_validity_checks`
 
-**Tried:**
+**What was tried:** 2 real `PATCH` attempts via `gh api` (a combined call, then a targeted
+follow-up) — both left these 2 disabled. Real diagnosis at the time suspected either a documented
+incompatibility between the two settings, or a personal-account (non-Enterprise) platform
+limitation.
 
-1. Single combined `PATCH` setting all five `security_and_analysis` sub-fields to `enabled` at
-   once. Result: 3/5 took; these 2 stayed `disabled` in the same response.
-2. A follow-up `PATCH` targeting only these 2, now that `secret_scanning` was confirmed already
-   `enabled` (in case of an ordering/dependency issue). Result: unchanged, still `disabled`.
+**Confirmed by Ashish directly in the GitHub UI** (`Settings → Code security`,
+`https://github.com/Ashish-Bhatia/TAPS/settings/security_analysis`): these two don't appear on the
+page at all for this account — not greyed out, not behind a clickable "Upgrade to GitHub Advanced
+Security" prompt, just genuinely absent. **This is a real account-tier platform limitation**, not
+something the API/CLI missed or a step Claude Code left undone. Closed as an accepted limitation —
+`TAPS-1.24`'s scope is what's actually available for a personal-account public repo, which is now
+fully enabled.
 
-**What real diagnosis (not guessing) turned up:** GitHub's own documentation states "validity
-checks are not supported for non-provider patterns" — these two settings may have a genuine,
-documented incompatibility with each other, or (more likely given `Ashish-Bhatia` is a personal
-account, not an organization) `secret_scanning_non_provider_patterns` and
-`secret_scanning_validity_checks` may simply not be available via the public-repo free tier for a
-personal-account repo the way base `secret_scanning`/`push_protection` are — those two became free
-for all public repos in 2023, but these more advanced toggles may still require GitHub Advanced
-Security (org/Enterprise) even on a public repo.
-
-**Options:**
-
-- A) Accept 3/5 as the real, correct end state for a personal-account public repo — close
-  `TAPS-1.24`'s scope to what's actually available here, and note the other 2 as not applicable
-  rather than not-yet-done.
-- B) Ashish checks the repo's Settings → Code security page directly in the browser — the UI
-  sometimes surfaces an explanation the API doesn't (e.g. "requires GitHub Advanced Security",
-  a Learn More link, or a one-time consent click the API can't complete on its own).
-
-**Recommendation:** A — this looks like a real platform limitation, not a fixable configuration
-error, and matches AC's own phrasing implying a repo-admin action Claude Code might not be able to
-complete alone. Needs Ashish's confirmation either way.
-
-## BLOCKED: push protection didn't block a known-test secret pattern
+## RESOLVED: push protection blocking a known-test secret pattern
 
 **Acceptance criterion:** "Given push protection is enabled, when a commit containing a known
 secret test-pattern (not a real credential) is pushed on a disposable branch, then the push is
 blocked with a clear error."
 
-**Tried** (each on its own disposable branch, pushed then immediately deleted — no real secret
-involved, both are AWS's own well-known public documentation placeholders):
+**3 real attempts, each on its own disposable branch (pushed, then discarded — no real secret ever
+involved):**
 
-1. `AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE` alone. Push succeeded — **not blocked**.
-2. A matched pair — `AKIAIOSFODNN7EXAMPLE` + AWS's paired example secret key
-   (`wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`) in the same file, informed by real research
-   turning up that GitHub's AWS pattern requires the ID and secret to co-occur in one file to
-   match. Push still succeeded — **still not blocked**.
+1. `AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE` alone. Pushed clean — not blocked.
+2. That same key, paired with AWS's own matching example secret key
+   (`wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`) in one file — informed by real research that
+   GitHub's AWS pattern needs ID+secret to co-occur. Still pushed clean — not blocked.
+3. **A fake but correctly-formatted GitHub Personal Access Token (`ghp_` + 36 chars) — genuinely
+   blocked**, with a clear error:
+   ```
+   remote: error: GH013: Repository rule violations found for refs/heads/...
+   remote: - GITHUB PUSH PROTECTION
+   remote:     - Push cannot contain secrets
+   remote:       —— GitHub Personal Access Token ——————
+   remote:        locations: commit <sha>, path: push-protection-test.txt:1
+   ```
+   The push was rejected outright — nothing ever reached GitHub's servers as a real commit.
 
-**What real diagnosis turned up:** this exact AWS example pair is used across essentially every
-AWS SDK's official documentation — GitHub plausibly allowlists it specifically to avoid flooding
-every repo containing AWS tutorial code with false-positive alerts. That's a reasonable
-explanation but unconfirmed.
-
-**Per the two-strike rule (`10-LOOP-PREVENTION-PROTOCOL.md`), stopped here** rather than trying a
-third secret pattern unsupervised.
-
-**Options:**
-
-- A) Try a genuinely non-placeholder-shaped test secret next — e.g. a fake but correctly-formatted
-  GitHub personal access token (`ghp_` + 36 random-looking chars) or Slack token, which are less
-  likely to be a universally-known documentation example GitHub would specifically allowlist.
-- B) Ashish tests this once directly (a real push from their own machine/account) since GitHub's
-  push protection UI sometimes shows richer diagnostic info (which pattern almost matched, why it
-  didn't) than the API/CLI push output does.
-
-**Recommendation:** A, as a quick next attempt if Ashish wants it tried — but this needs
-sign-off first per the two-strike rule rather than being retried unsupervised in the same session.
+**Conclusion:** push protection was working correctly the entire time. Attempts 1–2 failed to
+trigger it because GitHub plausibly allowlists that exact, famous AWS documentation example pair
+specifically to avoid flooding every repo containing AWS tutorial code with false positives — not
+because push protection itself was broken or unconfigured. Attempt 3, using a genuinely distinct
+fake secret, confirms the real behavior AC #2 asks for.
