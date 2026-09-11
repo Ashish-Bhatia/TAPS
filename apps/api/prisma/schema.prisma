@@ -29,6 +29,17 @@ enum PostType {
   ARTICLE
 }
 
+// PastPaper text-extraction pipeline state (TAPS-4.0) — see
+// docs/adr/010-pdf-text-extraction.md. PENDING is the default a row is
+// created with; the ingestion service moves it to DONE (extractedText set)
+// or FAILED (extractedText left null) and never leaves it at PENDING once
+// ingestion has actually run.
+enum ExtractionStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
 model ExamBoard {
   id          String        @id @default(cuid())
   // @unique added in TAPS-2.4: the seed script needs to upsert idempotently
@@ -100,6 +111,13 @@ model PastPaper {
   fileUrl     String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  // TAPS-4.0: text extracted from `fileUrl`'s PDF by
+  // PastPaperIngestionService, for EPIC 4's quiz generation to consume.
+  // Null until extraction has run and succeeded; stays null on FAILED too
+  // (a failed extraction never leaves stale/partial text behind).
+  extractedText    String?          @db.Text
+  extractionStatus ExtractionStatus @default(PENDING)
 
   @@index([examBoardId])
   @@index([subject])
