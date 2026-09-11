@@ -44,7 +44,9 @@
 ## 4. Core Data Model (v1, derived from `03-SOURCE-SITE-CONTENT-INVENTORY.md`)
 
 - `ExamBoard` (id, name, type[teaching|tet], description)
+  - Also carries a `searchVector` (`tsvector`) column for full-text search, added by `TAPS-3.4` — see ADR 009.
 - `Post` (id, examBoardId?, type[notification|article], title, slug, body, heroImage, publishedAt, updatedAt)
+  - Also carries a `searchVector` (`tsvector`) column for full-text search, added by `TAPS-3.4` — see ADR 009.
 - `Syllabus` (id, examBoardId, subject, topics[])
 - `PastPaper` (id, examBoardId, subject, year, fileUrl)
 - `StudyMaterial` (id, subject, title, fileUrl)

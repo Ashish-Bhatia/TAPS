@@ -30,14 +30,13 @@ Full setup instructions (prerequisites, pre-commit hook, environment variables):
 
 ## Deployment
 
-`apps/api` ships as a Docker image (`apps/api/Dockerfile`) to Fly.io (`apps/api/fly.toml`);
-deploy steps: `docs/runbooks/deploy-api.md`. Web/mobile deploy targets aren't set up yet
-(`TAPS-1.16` in the backlog).
+`apps/api` ships as a Docker image (`apps/api/Dockerfile`) to Fly.io (`apps/api/fly.toml`) and is
+live; deploy steps: `docs/runbooks/deploy-api.md`. `apps/web` is live on Vercel Production.
 
 ## Current sprint
 
-**Sprint 0** — repo scaffold, CI/CD, environment config, architecture skeleton (per
-`docs/project-knowledge/04-AGILE-PROCESS.md` §3). Backlog: `docs/backlog/BACKLOG.md`.
+**Sprint 2** — complete (EPIC 3: web app navigation shell, exam hub pages, Postgres full-text
+search). Sprint 3 has not yet started. Backlog: `docs/backlog/BACKLOG.md`.
 
 ## Contributing
 
