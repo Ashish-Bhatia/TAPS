@@ -1,0 +1,50 @@
+name: Deploy apps/api
+
+# Runs after the CI workflow finishes on `main` — not on every push directly — so a deploy
+# never happens for code that hasn't passed lint/test/format. See docs/adr/017-api-ci-deploy-pipeline.md
+# for why this is a separate workflow_run-triggered workflow rather than a job in ci.yml.
+on:
+  workflow_run:
+    workflows: ['CI']
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  group: deploy-api-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy & smoke test
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout the commit CI just validated
+        uses: actions/checkout@v4
+        with:
+          # Deliberately the workflow_run event's head_sha, not the default ref — this
+          # workflow file itself runs from main's version, but must deploy the exact commit
+          # CI passed, which may already be ahead of main by the time this job starts.
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy apps/api
+        # Build context MUST be the repo root (npm-workspaces monorepo, single root
+        # lockfile) even though fly.toml lives in apps/api/ — see apps/api/Dockerfile and
+        # docs/runbooks/deploy-api.md.
+        run: |
+          flyctl deploy \
+            --config apps/api/fly.toml \
+            --dockerfile apps/api/Dockerfile \
+            --remote-only \
+            .
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Post-deploy smoke test (user + admin auth, not just /health)
+        run: .github/scripts/smoke-test-api.sh
+        env:
+          API_URL: https://taps-api.fly.dev
+          SMOKE_ADMIN_PASSWORD: ${{ secrets.SMOKE_ADMIN_PASSWORD }}
