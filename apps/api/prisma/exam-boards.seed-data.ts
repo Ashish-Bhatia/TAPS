@@ -28,6 +28,24 @@ export const examBoards: ExamBoardSeed[] = [
       'Navodaya Vidyalaya Samiti — runs the Jawahar Navodaya Vidyalaya residential school system and recruits teachers and staff for its schools.',
   },
   {
+    name: 'BPSE',
+    type: 'TEACHING',
+    description:
+      'Bihar School Examination Board — conducts teacher recruitment examinations for government school teaching posts in Bihar.',
+  },
+  {
+    name: 'UP-TGT/PGT',
+    type: 'TEACHING',
+    description:
+      'Uttar Pradesh Trained Graduate Teacher / Post Graduate Teacher recruitment exam — the state-level selection process for TGT and PGT teaching posts in Uttar Pradesh government schools.',
+  },
+  {
+    name: 'REET',
+    type: 'TEACHING',
+    description:
+      'Rajasthan Eligibility Examination for Teachers — the state-level teacher recruitment exam that qualifies candidates for teaching posts in Rajasthan government schools.',
+  },
+  {
     name: 'CTET',
     type: 'TET',
     description:
