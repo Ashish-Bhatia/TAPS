@@ -5,7 +5,32 @@ image and `fly.toml` are in place; the steps below are founder-only account/plat
 (GitHub Actions secrets, Codespaces secrets — never hardcoded, never in chat transcripts, per
 `docs/project-knowledge/06-CODING-STANDARDS.md`) that Claude Code cannot perform.
 
-## Prerequisites (founder-only)
+## Automated deploy (as of TAPS-1.22)
+
+Every push to `main` that passes CI now deploys `apps/api` automatically via
+`.github/workflows/deploy-api.yml`, then runs `.github/scripts/smoke-test-api.sh` against the real
+deployed URL — `GET /health`, a throwaway user register+login, and an admin login, not just
+liveness (see `docs/adr/017-api-ci-deploy-pipeline.md` for why). **Manual `fly deploy` below is now
+the fallback/rollback path, not the normal path.**
+
+Two GitHub Actions repo secrets are required for the automated pipeline to work (founder-only —
+Settings → Secrets and variables → Actions):
+
+- `FLY_API_TOKEN` — generate with `fly tokens create deploy --config apps/api/fly.toml`.
+- `SMOKE_ADMIN_PASSWORD` — the real admin **plaintext** password matching the `ADMIN_PASSWORD_HASH`
+  currently set on the `taps-api` Fly app (see `TAPS-1.23`'s entry in `docs/backlog/BACKLOG.md` for
+  which password that is). A separate secret from `ADMIN_PASSWORD_HASH` deliberately — the hash
+  can't be reversed to log in with.
+
+Until both are set, `deploy-api.yml` fails loudly (at the `flyctl deploy` step, or at the admin-auth
+smoke-test step) rather than silently skipping — check the Actions tab after the first push to
+`main` following this story.
+
+Known side effect: the smoke test registers one throwaway user (`smoke-test+<timestamp>-<rand>@taps-smoke-test.invalid`)
+against the real production database on every deploy — no cleanup step exists yet. Accepted for
+now; see `docs/adr/017-api-ci-deploy-pipeline.md`.
+
+## Prerequisites (founder-only, first deploy only)
 
 1. Install the `flyctl` CLI and run `fly auth login`.
 2. Decide the real app name and region, then edit `apps/api/fly.toml`:
@@ -23,7 +48,7 @@ image and `fly.toml` are in place; the steps below are founder-only account/plat
      --config apps/api/fly.toml
    ```
 
-## Deploy
+## Manual deploy (fallback)
 
 The repo is an npm-workspaces monorepo with a single root lockfile, so `apps/api/Dockerfile`
 needs the **repo root** as its build context even though `fly.toml` lives in `apps/api/`. Run
@@ -35,7 +60,11 @@ fly deploy --config apps/api/fly.toml --dockerfile apps/api/Dockerfile .
 
 Fly reads the health check from `fly.toml`'s `[[http_service.checks]]` block (`GET /health`,
 matching `apps/api/src/health/health.controller.ts`) and won't route traffic to a machine until
-it passes.
+it passes. After a manual deploy, also run the same smoke test the pipeline runs:
+
+```bash
+API_URL=https://taps-api.fly.dev SMOKE_ADMIN_PASSWORD=... .github/scripts/smoke-test-api.sh
+```
 
 ## Verify
 
