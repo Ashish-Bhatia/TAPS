@@ -1,7 +1,12 @@
 # Auth
 
-Single-admin JWT auth — see `docs/adr/005-admin-auth-and-validation.md` for why there's no `User`
-table yet. Every route below except `POST /auth/login` itself requires the JWT this returns.
+Single-admin JWT auth for the CMS. This is **not** the end-user account system — as of `TAPS-5.1`
+there is a real `User` table and a fully separate `apps/api/src/user-auth/` module (its own guard,
+JWT secret, and claim shape); see `docs/api/user-auth.md` and
+`docs/adr/014-user-auth-separate-from-admin-auth.md` for that and why the two are deliberately
+never merged. This doc covers only the original single-admin-credential system — see
+`docs/adr/005-admin-auth-and-validation.md` for why it was built that way. Every route below
+except `POST /auth/login` itself requires the JWT this returns.
 
 ## `POST /auth/login`
 
