@@ -65,7 +65,11 @@
 - `QuizQuestion` (id, pastPaperId, subject, topic, difficulty[EASY|MEDIUM|HARD], questionText,
   options[], correctOption, explanation, aiGenerated, reviewedByAdmin, createdAt) — populated by
   `AIService.generateQuizFromPaper` (`TAPS-4.1`), see ADR 011.
-- `QuizAttempt` (id, userId, quizId, score, weakTopics[], completedAt)
+- `QuizAttempt` (id, userId, examBoardId, questionIds[], answers, score, weakTopics, completedAt) —
+  implemented by `TAPS-5.2`. No separate `Quiz`/`QuizSession` model — the attempt itself groups the
+  `QuizQuestion` ids it was created against; see `docs/adr/015-quiz-attempt-data-shape.md` for why,
+  and `docs/api/quiz-attempts.md` for the `POST /quiz-attempts/start` /
+  `POST /quiz-attempts/:id/submit` endpoints (guarded by `TAPS-5.1`'s `UserJwtAuthGuard`).
 - `StudyPlan` (id, userId, examBoardId, targetDate, dailyPlan[])
 
 ## 5. AI Service Boundary
