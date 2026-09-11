@@ -57,3 +57,16 @@ stage, revisited below.
 - Tracked as a new backlog follow-up: investigate the actual root cause in Next.js's Data Cache
   (file an upstream issue if it reproduces on a minimal repro) before ever reintroducing
   `next.revalidate` in this app.
+
+## Update (`TAPS-3.5`)
+
+This follow-up was completed as `TAPS-3.5`: every `apps/web` fetch was re-audited against Next.js
+16.3.4's actual current caching defaults (read from the docs bundled with the installed version,
+not assumed from older Next.js behavior), and the root-cause investigation into the framework's
+Data Cache bug was retired in favor of the same fix-the-symptom stance this ADR already took (per
+loop-prevention rule 1) — it remains out of scope to keep chasing. The decision above (`cache:
+'no-store'` everywhere) was found **still correct** under Next 16, not superseded: this ADR's
+Status stays **Accepted**. Full findings, the fetch-by-fetch audit table, and guidance for `EPIC
+5`'s upcoming user-specific fetches are in `docs/architecture/web-app.md`'s "Data Cache audit
+(`TAPS-3.5`)" section. No code changed as a result — the remaining "cache genuinely static content"
+opportunity that section identifies is filed as `TAPS-3.7`, not built here.

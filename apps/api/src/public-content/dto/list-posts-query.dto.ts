@@ -18,4 +18,13 @@ export class ListPostsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   examBoardId?: string;
+
+  // TAPS-3.8: optional filter on Post.category (free-form string, not an
+  // enum — see docs/adr/013-post-category-field-and-content-endpoints.md).
+  // Declared on this same DTO for the same reason examBoardId is — a
+  // separate @Query('category') param would hit the exact
+  // forbidNonWhitelisted 400 bug documented above.
+  @IsOptional()
+  @IsString()
+  category?: string;
 }

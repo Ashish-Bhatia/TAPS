@@ -13,12 +13,12 @@ export class PublicPostsController {
   constructor(private readonly postsService: PublicPostsService) {}
 
   // Single DTO carrying every accepted query field (page, pageSize,
-  // examBoardId), bound via one @Query() — see
+  // examBoardId, category), bound via one @Query() — see
   // dto/list-posts-query.dto.ts for why that matters (a real bug, found
   // live, when this used a second, separate @Query('examBoardId') param).
   @Get()
   findAll(@Query() query: ListPostsQueryDto): Promise<Paginated<Post>> {
-    return this.postsService.findAll(query, query.examBoardId);
+    return this.postsService.findAll(query, query.examBoardId, query.category);
   }
 
   // Looked up by slug, not id — slug is Post's public-facing identifier

@@ -47,6 +47,9 @@
   - Also carries a `searchVector` (`tsvector`) column for full-text search, added by `TAPS-3.4` — see ADR 009.
 - `Post` (id, examBoardId?, type[notification|article], title, slug, body, heroImage, publishedAt, updatedAt)
   - Also carries a `searchVector` (`tsvector`) column for full-text search, added by `TAPS-3.4` — see ADR 009.
+  - Also carries a nullable, free-form `category` (`String?`, not an enum) column, added by
+    `TAPS-3.8` so board-specific sub-pages (exam pattern, eligibility, etc.) can filter to
+    distinct content instead of sharing one `ARTICLE`-typed list — see ADR 013.
 - `Syllabus` (id, examBoardId, subject, topics[])
 - `PastPaper` (id, examBoardId, subject, year, fileUrl)
   - Also carries `extractedText` (nullable) and `extractionStatus` (`PENDING` | `DONE` | `FAILED`),
@@ -54,11 +57,19 @@
     ADR 010.
 - `StudyMaterial` (id, subject, title, fileUrl)
 - `Book` (id, class, subject, title, fileUrl)
-- `User` (id, email, name, examTargets[], createdAt)
+- `User` (id, email, passwordHash, name?, examTargets[], createdAt, updatedAt) — implemented by
+  `TAPS-5.1`. Auth (registration/login) lives in `apps/api/src/user-auth/`, deliberately separate
+  from the admin CMS auth in `apps/api/src/auth/` (different identity source, JWT signing secret,
+  guard, and claim shape) — see `docs/adr/014-user-auth-separate-from-admin-auth.md` and
+  `docs/api/user-auth.md`.
 - `QuizQuestion` (id, pastPaperId, subject, topic, difficulty[EASY|MEDIUM|HARD], questionText,
   options[], correctOption, explanation, aiGenerated, reviewedByAdmin, createdAt) — populated by
   `AIService.generateQuizFromPaper` (`TAPS-4.1`), see ADR 011.
-- `QuizAttempt` (id, userId, quizId, score, weakTopics[], completedAt)
+- `QuizAttempt` (id, userId, examBoardId, questionIds[], answers, score, weakTopics, completedAt) —
+  implemented by `TAPS-5.2`. No separate `Quiz`/`QuizSession` model — the attempt itself groups the
+  `QuizQuestion` ids it was created against; see `docs/adr/015-quiz-attempt-data-shape.md` for why,
+  and `docs/api/quiz-attempts.md` for the `POST /quiz-attempts/start` /
+  `POST /quiz-attempts/:id/submit` endpoints (guarded by `TAPS-5.1`'s `UserJwtAuthGuard`).
 - `StudyPlan` (id, userId, examBoardId, targetDate, dailyPlan[])
 
 ## 5. AI Service Boundary

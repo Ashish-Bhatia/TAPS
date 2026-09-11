@@ -46,6 +46,28 @@ describe('PublicPostsService', () => {
     expect(where?.examBoardId).toBe('board-1');
   });
 
+  it('findAll adds category to the where clause when provided (TAPS-3.8)', async () => {
+    prismaMock.post.findMany.mockResolvedValue([]);
+    prismaMock.post.count.mockResolvedValue(0);
+
+    await service.findAll({ page: 1, pageSize: 20 }, undefined, 'eligibility');
+
+    const where = prismaMock.post.findMany.mock.calls[0][0].where;
+    expect(where?.category).toBe('eligibility');
+    expect(where?.examBoardId).toBeUndefined();
+  });
+
+  it('findAll combines examBoardId and category filters when both provided', async () => {
+    prismaMock.post.findMany.mockResolvedValue([]);
+    prismaMock.post.count.mockResolvedValue(0);
+
+    await service.findAll({ page: 1, pageSize: 20 }, 'board-1', 'exam-pattern');
+
+    const where = prismaMock.post.findMany.mock.calls[0][0].where;
+    expect(where?.examBoardId).toBe('board-1');
+    expect(where?.category).toBe('exam-pattern');
+  });
+
   it('findOne looks up by slug scoped to published posts only (drafts stay hidden)', async () => {
     prismaMock.post.findFirst.mockResolvedValue(null);
 

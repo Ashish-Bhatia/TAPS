@@ -1,4 +1,14 @@
-import { getExamBoard, getExamBoardsForNav, getPostsByExamBoard, search } from './api';
+import {
+  getAllStudyMaterials,
+  getExamBoard,
+  getExamBoardsForNav,
+  getMyQuizAttempts,
+  getPastPapersByExamBoard,
+  getPostsByExamBoard,
+  getSyllabusByExamBoard,
+  search,
+  UnauthorizedApiError,
+} from './api';
 
 describe('getExamBoardsForNav', () => {
   const originalFetch = global.fetch;
@@ -84,6 +94,88 @@ describe('getPostsByExamBoard', () => {
 
     await expect(getPostsByExamBoard('board-1')).resolves.toEqual(posts);
     expect(fetchMock.mock.calls[0][0]).toContain('/public/posts?examBoardId=board-1');
+    expect(fetchMock.mock.calls[0][0]).not.toContain('category');
+  });
+
+  it('adds a category filter (TAPS-3.8) when one is passed', async () => {
+    const posts = [{ id: '1', title: 'A pattern post', category: 'exam-pattern' }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: posts, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getPostsByExamBoard('board-1', 'exam-pattern')).resolves.toEqual(posts);
+    expect(fetchMock.mock.calls[0][0]).toContain('examBoardId=board-1');
+    expect(fetchMock.mock.calls[0][0]).toContain('category=exam-pattern');
+  });
+});
+
+describe('getSyllabusByExamBoard', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('requests the examBoardId-filtered syllabus endpoint and returns the data array', async () => {
+    const syllabus = [{ id: '1', subject: 'Mathematics', topics: ['Algebra'] }];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({ data: syllabus, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getSyllabusByExamBoard('board-1')).resolves.toEqual(syllabus);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/syllabus?examBoardId=board-1');
+  });
+});
+
+describe('getPastPapersByExamBoard', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('requests the examBoardId-filtered past-papers endpoint and returns the data array', async () => {
+    const pastPapers = [
+      { id: '1', subject: 'Mathematics', year: 2025, fileUrl: 'https://x/1.pdf' },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({ data: pastPapers, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getPastPapersByExamBoard('board-1')).resolves.toEqual(pastPapers);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/past-papers?examBoardId=board-1');
+  });
+});
+
+describe('getAllStudyMaterials', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('requests the unfiltered study-materials endpoint and returns the data array', async () => {
+    const studyMaterials = [
+      { id: '1', subject: 'Mathematics', title: 'Algebra notes', fileUrl: 'https://x/1.pdf' },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({ data: studyMaterials, page: 1, pageSize: 100, total: 1, totalPages: 1 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getAllStudyMaterials()).resolves.toEqual(studyMaterials);
+    expect(fetchMock.mock.calls[0][0]).toContain('/public/study-materials?pageSize=100');
+    expect(fetchMock.mock.calls[0][0]).not.toContain('examBoardId');
   });
 });
 
@@ -107,5 +199,48 @@ describe('search', () => {
 
     await expect(search('teacher eligibility')).resolves.toEqual(page);
     expect(fetchMock.mock.calls[0][0]).toContain('/public/search?q=teacher%20eligibility');
+  });
+});
+
+describe('getMyQuizAttempts (TAPS-5.0.5/TAPS-5.3)', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('forwards the token as a Bearer header and returns the result as-is', async () => {
+    const result = {
+      attempts: [],
+      accuracyTrend: [],
+      weakTopicHeatmap: {},
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(result),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(getMyQuizAttempts('jwt-abc')).resolves.toEqual(result);
+    expect(fetchMock.mock.calls[0][0]).toContain('/quiz-attempts/me');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      cache: 'no-store',
+      headers: { Authorization: 'Bearer jwt-abc' },
+    });
+  });
+
+  it('throws UnauthorizedApiError specifically on a 401 (never fails soft)', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 401 }) as unknown as typeof fetch;
+
+    await expect(getMyQuizAttempts('stale-jwt')).rejects.toThrow(UnauthorizedApiError);
+  });
+
+  it('throws a plain Error on any other non-OK status', async () => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+
+    const error = await getMyQuizAttempts('jwt-abc').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).not.toBeInstanceOf(UnauthorizedApiError);
   });
 });

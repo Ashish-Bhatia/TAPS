@@ -9,9 +9,14 @@ two ever disagree, the `.prisma` file wins and this doc is stale and needs updat
 `05-ARCHITECTURE.md` §4 lists ten models. This schema implements the six that belong to **EPIC 2:
 Content data model + CMS/admin** — `ExamBoard`, `Post`, `Syllabus`, `PastPaper`, `StudyMaterial`,
 `Book` — plus, as of `TAPS-4.1`, `QuizQuestion` (EPIC 4), added because it's the first concrete
-output of `AIService.generateQuizFromPaper` and has a direct FK relation to `PastPaper`. `User`,
-`QuizAttempt`, and `StudyPlan` belong to later epics (5, 7, 8) and are intentionally not in this
-schema yet — adding them here would be scope creep ahead of the stories that actually need them.
+output of `AIService.generateQuizFromPaper` and has a direct FK relation to `PastPaper`, and, as of
+`TAPS-5.1`/`TAPS-5.2`, `User` and `QuizAttempt` (EPIC 5) — neither covered in the table below since
+they aren't part of this doc's content-model scope; see `docs/api/user-auth.md` +
+`docs/adr/014-user-auth-separate-from-admin-auth.md` for `User`, and `docs/api/quiz-attempts.md` +
+`docs/adr/015-quiz-attempt-data-shape.md` for `QuizAttempt` (which references `ExamBoard` directly
+and `QuizQuestion` only indirectly, via a stored list of ids — no separate `Quiz`/`QuizSession`
+model). `StudyPlan` belongs to a later epic (8) and is intentionally not in this schema yet —
+adding it here would be scope creep ahead of the story that actually needs it.
 
 ## Models
 
