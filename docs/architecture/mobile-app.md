@@ -1,6 +1,6 @@
 # `apps/mobile` — App Structure & Navigation
 
-Covers `TAPS-6.1`/`TAPS-6.2`/`TAPS-6.3`. Expo SDK 57, Expo Router (`app/` directory). See
+Covers `TAPS-6.1`/`TAPS-6.2`/`TAPS-6.3`/`TAPS-6.4`. Expo SDK 57, Expo Router (`app/` directory). See
 `docs/adr/022-mobile-navigation-and-testing.md` for why Expo Router (not bare React Navigation) and
 `jest-expo` (not Vitest, despite `apps/web`/`apps/api`'s use of it) were chosen,
 `docs/adr/023-mobile-auth-token-storage.md` for the `expo-secure-store` decision, and
@@ -61,6 +61,27 @@ logged out (there's nothing to start) — checking the loading spinner first wou
 visitor stuck on a spinner forever. A real render test (`__tests__/quiz.test.tsx`) caught this
 ordering bug before merge, not in production.
 
+## Progress dashboard (`TAPS-6.4`)
+
+`src/lib/dashboard.ts` — `getMyQuizAttempts(token)` reuses `src/lib/auth.ts`'s `apiFetchAuthed`
+directly (a plain authed `GET`, unlike `TAPS-6.3`'s `quiz.ts`, which needed authed `POST`s
+`apiFetchAuthed` doesn't cover) against `GET /quiz-attempts/me` (`docs/api/quiz-attempts.md`,
+`TAPS-5.3`). `app/dashboard.tsx` mirrors `apps/web/src/app/dashboard/page.tsx`'s three sections
+(accuracy trend, weak-topic heatmap, attempt history) and its empty-state copy verbatim. React
+Native has no built-in charting library — the accuracy trend is a plain `View`-bar row (height set
+via a percentage style, same idea as the web version's `div` bars) rather than a canvas/SVG chart;
+same information, no new dependency added for it.
+
+Entry point: a "Your progress" link on `app/account.tsx`, next to the logout button — the quiz-
+taking flow (`TAPS-6.3`) is reached from an exam board's own detail screen instead, so this screen
+now has two distinct authenticated-area entry points rather than one.
+
+A `401` from `getMyQuizAttempts` (the bearer token itself rejected — stale or tampered, as opposed
+to `status === 'unauthenticated'`, "never logged in") calls `useAuth().logout()` and redirects to
+`/login`, mirroring `apps/web`'s `UnauthorizedApiError`/`clearSessionAndRedirectToLogin` distinction
+exactly — same reason: a visitor whose session already lapsed shouldn't get stuck bouncing between
+`/dashboard` and a still-"logged-in"-looking `/account`.
+
 ## Data fetching
 
 `src/lib/api.ts` — `apiUrl()` reads `EXPO_PUBLIC_API_URL` (Expo's client-env prefix, mirroring
@@ -96,10 +117,12 @@ long-standing gap ("`apps/mobile` has no test script and no test tooling at all"
 workspace.
 
 `src/lib/quiz.test.ts` (`TAPS-6.3`) covers `startQuiz`/`submitQuiz`'s request shape and
-401/other-non-OK handling the same way.
+401/other-non-OK handling the same way, as does `src/lib/dashboard.test.ts` (`TAPS-6.4`) for
+`getMyQuizAttempts` (including the real "empty history" `200` shape, not just error paths).
 
 `__tests__/index.test.tsx`, `__tests__/exam-boards/[id].test.tsx`, `__tests__/login.test.tsx`,
-`__tests__/account.test.tsx`, `__tests__/quiz.test.tsx` go one level further: `expo-router/testing-library`'s `renderRouter`
+`__tests__/account.test.tsx`, `__tests__/quiz.test.tsx`, `__tests__/dashboard.test.tsx` go one level
+further: `expo-router/testing-library`'s `renderRouter`
 mounts the actual route files through the real route table (real navigation, real
 `useLocalSearchParams`), asserting on real rendered text from a mocked `fetch`/`expo-secure-store` —
 proof the screens themselves, not just `api.ts`/`auth.ts`, correctly turn a response into visible
@@ -116,5 +139,6 @@ had silently broken `npx expo export` on `develop` since their own commit, becau
 See ADR 023's writeup. `renderRouter`'s first argument (`'./app'` in every file) resolves from the
 Jest process's root directory (`apps/mobile`), not from the test file's own location — confirmed by
 testing it, not assumed — so it's identical across every file in `__tests__/` regardless of nesting.
-`src/lib/*.test.ts` (`api.test.ts`, `auth.test.ts`, `quiz.test.ts` — no route files involved) stay
+`src/lib/*.test.ts` (`api.test.ts`, `auth.test.ts`, `quiz.test.ts`, `dashboard.test.ts` — no route
+files involved) stay
 colocated as before; only route-rendering tests need to live outside `app/`.

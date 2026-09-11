@@ -3,11 +3,10 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { useAuth } from '../src/lib/AuthContext';
 
-// Account screen (TAPS-6.2) — the one screen this story adds that isn't
-// the login form itself, so there's somewhere for "logged in as X" / "log
-// out" to live, and somewhere for /login to redirect back to. TAPS-6.3/
-// 6.4's screens (quiz-taking, progress dashboard) are the real
-// authenticated content; this screen doesn't try to anticipate their UI.
+// Account screen (TAPS-6.2) — "logged in as X" / "log out", and somewhere
+// for /login to redirect back to. Also the entry point to the progress
+// dashboard (TAPS-6.4) — the quiz-taking flow (TAPS-6.3) is reached from
+// an exam board's own detail screen instead, not from here.
 export default function AccountScreen() {
   const { status, email, logout } = useAuth();
 
@@ -35,6 +34,11 @@ export default function AccountScreen() {
   return (
     <View style={styles.centered}>
       <Text style={styles.message}>Logged in as {email}</Text>
+      <Link href="/dashboard" asChild>
+        <Pressable testID="dashboard-link-button" style={styles.button}>
+          <Text style={styles.buttonText}>Your progress</Text>
+        </Pressable>
+      </Link>
       <Pressable style={styles.button} onPress={logout}>
         <Text style={styles.buttonText}>Log out</Text>
       </Pressable>

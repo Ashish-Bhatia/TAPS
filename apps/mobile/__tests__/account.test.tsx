@@ -34,6 +34,20 @@ describe('app/account.tsx', () => {
     await waitFor(() => expect(screen.getByText('Logged in as stored@example.com')).toBeTruthy());
   });
 
+  // TAPS-6.4: the entry point into the progress dashboard.
+  it('links to /dashboard when logged in', async () => {
+    mockedSecureStore.getItemAsync.mockResolvedValue(
+      JSON.stringify({ accessToken: 'stored.jwt', email: 'stored@example.com' }),
+    );
+
+    const router = renderRouter('./app', { initialUrl: '/account' });
+
+    await waitFor(() => expect(screen.getByTestId('dashboard-link-button')).toBeTruthy());
+    fireEvent.press(screen.getByTestId('dashboard-link-button'));
+
+    await waitFor(() => expect(router.getPathname()).toBe('/dashboard'));
+  });
+
   it('logs out, clears the stored session, and returns to the logged-out state', async () => {
     mockedSecureStore.getItemAsync.mockResolvedValue(
       JSON.stringify({ accessToken: 'stored.jwt', email: 'stored@example.com' }),
