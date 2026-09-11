@@ -22,7 +22,7 @@ npm run dev --workspace=web              # Next.js — http://localhost:3000
 npm run start:dev --workspace=api        # NestJS
 npm run start --workspace=mobile         # Expo dev tools
 npm run lint --workspaces --if-present   # ESLint, every app
-npm run test --workspaces --if-present   # Vitest (apps/api); more apps get test scripts as they gain code
+npm run test --workspaces --if-present   # Vitest (apps/web, apps/api), jest-expo (apps/mobile)
 ```
 
 Full setup instructions (prerequisites, pre-commit hook, environment variables):
@@ -35,8 +35,9 @@ live; deploy steps: `docs/runbooks/deploy-api.md`. `apps/web` is live on Vercel 
 
 ## Current sprint
 
-**Sprint 2** — complete (EPIC 3: web app navigation shell, exam hub pages, Postgres full-text
-search). Sprint 3 has not yet started. Backlog: `docs/backlog/BACKLOG.md`.
+**Sprint 6** — in progress (EPIC 6: mobile app). `TAPS-6.1` (exam board browsing) done; `TAPS-6.2`–
+`6.5` (auth, quiz-taking, progress dashboard) next. Sprints 1–5 summaries: `docs/sprints/`. Backlog:
+`docs/backlog/BACKLOG.md`.
 
 ## Contributing
 
