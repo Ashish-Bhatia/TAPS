@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { RevalidationService } from '../revalidation/revalidation.service.js';
 import { PostService } from './post.service.js';
 
 describe('PostService', () => {
@@ -14,11 +15,16 @@ describe('PostService', () => {
       delete: vi.fn(),
     },
   };
+  const revalidationMock = { revalidate: vi.fn() };
 
   beforeEach(async () => {
     vi.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PostService, { provide: PrismaService, useValue: prismaMock }],
+      providers: [
+        PostService,
+        { provide: PrismaService, useValue: prismaMock },
+        { provide: RevalidationService, useValue: revalidationMock },
+      ],
     }).compile();
 
     service = module.get<PostService>(PostService);
@@ -50,6 +56,47 @@ describe('PostService', () => {
     expect(prismaMock.post.create).toHaveBeenCalledWith({
       data: { ...dto, publishedAt: undefined },
     });
+  });
+
+  it('create revalidates the post-board tag (TAPS-3.7) when the created post has an examBoardId', async () => {
+    const dto = {
+      type: PostType.ARTICLE,
+      title: 'Hi',
+      slug: 'hi',
+      body: 'x',
+      examBoardId: 'board-1',
+    };
+    prismaMock.post.create.mockResolvedValue({ id: '1', ...dto });
+
+    await service.create(dto);
+
+    expect(revalidationMock.revalidate).toHaveBeenCalledWith(['posts-board-1']);
+  });
+
+  it('create does NOT call revalidate when the post has no examBoardId', async () => {
+    const dto = { type: PostType.ARTICLE, title: 'Draft', slug: 'draft', body: 'body' };
+    prismaMock.post.create.mockResolvedValue({ id: '1', ...dto, examBoardId: null });
+
+    await service.create(dto);
+
+    expect(revalidationMock.revalidate).not.toHaveBeenCalled();
+  });
+
+  it("update revalidates the post-board tag (TAPS-3.7) using the updated record's examBoardId", async () => {
+    prismaMock.post.update.mockResolvedValue({ id: '1', title: 'Updated', examBoardId: 'board-2' });
+
+    await service.update('1', { title: 'Updated' });
+
+    expect(revalidationMock.revalidate).toHaveBeenCalledWith(['posts-board-2']);
+  });
+
+  it("remove revalidates the post-board tag (TAPS-3.7) using the deleted record's examBoardId", async () => {
+    prismaMock.post.delete.mockResolvedValue({ id: '1', examBoardId: 'board-3' });
+
+    await service.remove('1');
+
+    expect(prismaMock.post.delete).toHaveBeenCalledWith({ where: { id: '1' } });
+    expect(revalidationMock.revalidate).toHaveBeenCalledWith(['posts-board-3']);
   });
 
   it('findAll filters by examBoardId when provided', async () => {

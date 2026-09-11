@@ -30,6 +30,21 @@ describe('getExamBoardsForNav', () => {
     await expect(getExamBoardsForNav()).resolves.toEqual(boards);
   });
 
+  it('fetches with the exam-boards cache tag (TAPS-3.7), not no-store', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [], page: 1, pageSize: 100, total: 0, totalPages: 0 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await getExamBoardsForNav();
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      cache: 'force-cache',
+      next: { tags: ['exam-boards'] },
+    });
+  });
+
   it('fails soft (empty array, logged) when the API is unreachable — must never break every page', async () => {
     console.error = vi.fn();
     global.fetch = vi.fn().mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof fetch;
@@ -75,6 +90,22 @@ describe('getExamBoard', () => {
 
     await expect(getExamBoard('1')).rejects.toThrow();
   });
+
+  it('fetches with the board-specific cache tag (TAPS-3.7), not no-store', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ id: '1', name: 'DSSSB' }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await getExamBoard('1');
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      cache: 'force-cache',
+      next: { tags: ['exam-board-1'] },
+    });
+  });
 });
 
 describe('getPostsByExamBoard', () => {
@@ -108,6 +139,21 @@ describe('getPostsByExamBoard', () => {
     await expect(getPostsByExamBoard('board-1', 'exam-pattern')).resolves.toEqual(posts);
     expect(fetchMock.mock.calls[0][0]).toContain('examBoardId=board-1');
     expect(fetchMock.mock.calls[0][0]).toContain('category=exam-pattern');
+  });
+
+  it('fetches with the board-specific posts cache tag (TAPS-3.7), unaffected by category', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ data: [], page: 1, pageSize: 100, total: 0, totalPages: 0 }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await getPostsByExamBoard('board-1', 'exam-pattern');
+
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      cache: 'force-cache',
+      next: { tags: ['posts-board-1'] },
+    });
   });
 });
 
@@ -199,6 +245,9 @@ describe('search', () => {
 
     await expect(search('teacher eligibility')).resolves.toEqual(page);
     expect(fetchMock.mock.calls[0][0]).toContain('/public/search?q=teacher%20eligibility');
+    // Deliberately NOT tagged/cached (TAPS-3.7 scopes caching to static/shared
+    // content only) — a live user query must never be cached.
+    expect(fetchMock.mock.calls[0][1]).toEqual({ cache: 'no-store' });
   });
 });
 

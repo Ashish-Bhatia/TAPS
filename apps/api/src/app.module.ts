@@ -12,6 +12,7 @@ import { PostModule } from './post/post.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicContentModule } from './public-content/public-content.module.js';
 import { QuizAttemptModule } from './quiz-attempt/quiz-attempt.module.js';
+import { RevalidationModule } from './revalidation/revalidation.module.js';
 import { UserAuthModule } from './user-auth/user-auth.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -26,6 +27,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
       serviceId: 'api',
     }),
     PrismaModule,
+    RevalidationModule,
     AuthModule,
     ExamBoardModule,
     PostModule,
