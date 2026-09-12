@@ -35,15 +35,20 @@ live; deploy steps: `docs/runbooks/deploy-api.md`. `apps/web` is live on Vercel 
 
 ## Current sprint
 
-**Sprint 7** — in progress. `TAPS-2.13` (Cloudflare R2 object storage + the `apps/api` upload path
-it unblocks) shipped ahead of formal sprint planning — a real bucket, a real `POST /storage/upload`,
-and a real uploaded/fetched-back file confirming `PastPaper.fileUrl` now has an actual producer.
-`TAPS-4.5` (quiz-generation chunking, `docs/adr/025-quiz-generation-paper-chunking.md`) and
-`TAPS-4.6` (Chanakya-font Devanagari mojibake, `docs/adr/024-chanakya-devanagari-mojibake-conversion.md`)
-are both done, and `TAPS-4.7` proved both live end-to-end against real production services (real
-R2, real Neon DB, real OpenAI) — 225 real `QuizQuestion` rows now exist for the CTET exam board,
-which also finally closes `TAPS-4.4`. Sprints 1–6 summaries: `docs/sprints/`. Backlog:
-`docs/backlog/BACKLOG.md`.
+**Sprint 7** — closed. `TAPS-4.5` (quiz-generation chunking, `docs/adr/025-quiz-generation-paper-chunking.md`)
+and `TAPS-4.6` (Chanakya-font Devanagari mojibake, `docs/adr/024-chanakya-devanagari-mojibake-conversion.md`)
+both done, and `TAPS-4.7` proved both live end-to-end against real production services (real R2,
+real Neon DB, real OpenAI) — 225 real `QuizQuestion` rows now exist for the CTET exam board, which
+also finally closes `TAPS-4.4` (on the second attempt — the first production row was itself
+corrupted evidence of the two bugs just fixed, see `docs/sprints/sprint-07-summary.md`). `TAPS-2.13`
+(Sprint 6 spillover) and Sprint 6's own mobile work (`TAPS-6.1`–`6.5`) were carried into this
+sprint's sync of `develop` to `main` (PR #71), triggering a real production deploy via `TAPS-1.22`.
+Also closed: `TAPS-1.30` (branch cleanup, 17 branches down to 3) and `TAPS-1.29` (branch protection/
+Dependabot/security overview re-verified directly via the GitHub UI, after the API repeatedly
+403'd Claude Code's token). New from that re-verification, not yet started: `TAPS-1.32` (3
+High-severity `multer` DoS advisories) and `TAPS-1.33` (CodeQL setup). `TAPS-1.31` (Anthropic vendor
+decision) is deferred to the founder. Sprint 8 not yet planned. Sprints 1–7 summaries:
+`docs/sprints/`. Backlog: `docs/backlog/BACKLOG.md`.
 
 ## Contributing
 
