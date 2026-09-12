@@ -22,7 +22,7 @@ npm run dev --workspace=web              # Next.js — http://localhost:3000
 npm run start:dev --workspace=api        # NestJS
 npm run start --workspace=mobile         # Expo dev tools
 npm run lint --workspaces --if-present   # ESLint, every app
-npm run test --workspaces --if-present   # Vitest (apps/api); more apps get test scripts as they gain code
+npm run test --workspaces --if-present   # Vitest (apps/web, apps/api), jest-expo (apps/mobile)
 ```
 
 Full setup instructions (prerequisites, pre-commit hook, environment variables):
@@ -35,8 +35,15 @@ live; deploy steps: `docs/runbooks/deploy-api.md`. `apps/web` is live on Vercel 
 
 ## Current sprint
 
-**Sprint 2** — complete (EPIC 3: web app navigation shell, exam hub pages, Postgres full-text
-search). Sprint 3 has not yet started. Backlog: `docs/backlog/BACKLOG.md`.
+**Sprint 7** — in progress. `TAPS-2.13` (Cloudflare R2 object storage + the `apps/api` upload path
+it unblocks) shipped ahead of formal sprint planning — a real bucket, a real `POST /storage/upload`,
+and a real uploaded/fetched-back file confirming `PastPaper.fileUrl` now has an actual producer.
+`TAPS-4.5` (quiz-generation chunking, `docs/adr/025-quiz-generation-paper-chunking.md`) and
+`TAPS-4.6` (Chanakya-font Devanagari mojibake, `docs/adr/024-chanakya-devanagari-mojibake-conversion.md`)
+are both done, and `TAPS-4.7` proved both live end-to-end against real production services (real
+R2, real Neon DB, real OpenAI) — 225 real `QuizQuestion` rows now exist for the CTET exam board,
+which also finally closes `TAPS-4.4`. Sprints 1–6 summaries: `docs/sprints/`. Backlog:
+`docs/backlog/BACKLOG.md`.
 
 ## Contributing
 
