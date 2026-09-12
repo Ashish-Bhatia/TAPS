@@ -366,4 +366,142 @@ describe('AIService', () => {
       expect(prismaMock.quizQuestion.create).not.toHaveBeenCalled();
     });
   });
+
+  describe('TAPS-4.5 paper chunking', () => {
+    /** Builds `pdf-parse`'s exact default page-joiner format for `count` pages. */
+    function buildPagedPaper(count: number, pageText: (num: number) => string): string {
+      let text = '';
+      for (let i = 1; i <= count; i++) {
+        text += `${pageText(i)}\n-- ${i} of ${count} --\n\n`;
+      }
+      return text;
+    }
+
+    /** Total content length of every message the mocked provider actually saw. */
+    function totalPromptLength(args: { messages: Anthropic.MessageParam[] }): number {
+      return args.messages.reduce(
+        (sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0),
+        0,
+      );
+    }
+
+    // A real full-size paper (this project's own `PastPaper
+    // cmtyqyy0z0001sahpuyhz0v24`, ~69.8k prompt tokens for the whole
+    // document) reproducibly exhausted gpt-5.6-terra's completion budget on
+    // hidden reasoning before emitting any visible output — a real,
+    // documented `finish_reason: length` with empty `message.content` (see
+    // docs/backlog/BACKLOG.md's TAPS-4.5 row). A unit test can't call the
+    // real OpenAI API, so this reproduces the *mechanism* directly: a mock
+    // that returns empty content once the combined prompt it's given crosses
+    // a fixed length, exactly like the real failure did once prompt size
+    // crossed the model's real budget.
+    const LENGTH_FAILURE_THRESHOLD = 15_000;
+
+    it('reproduces the original finish_reason: length failure mode on a synthetic full-length paper, and proves chunking avoids it', async () => {
+      // 24 pages * ~1,020 chars/page ≈ 24,500 chars unchunked — comfortably
+      // over LENGTH_FAILURE_THRESHOLD, and (per DEFAULT_PAGES_PER_CHUNK = 8)
+      // splits into chunks of ~8,200 chars each, comfortably under it.
+      const bigPaper = buildPagedPaper(24, (n) => `${'A'.repeat(1000)} page-${n}`);
+      prismaMock.pastPaper.findUnique.mockResolvedValue({ ...pastPaper, extractedText: bigPaper });
+
+      // anthropicCreateMock's declared type (ReturnType<typeof vi.fn>, untyped
+      // to keep it usable across every test in this file) makes this
+      // dynamic-per-call mockImplementation look, to the promise-misuse
+      // rule, like it wants a void-returning callback — it doesn't; the real
+      // client's messages.create() is genuinely async, same as every other
+      // mockResolvedValue/mockRejectedValue call on this mock elsewhere here.
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      anthropicCreateMock.mockImplementation((args: { messages: Anthropic.MessageParam[] }) => {
+        if (totalPromptLength(args) > LENGTH_FAILURE_THRESHOLD) {
+          // The real observed failure: the SDK call succeeds, but the
+          // completion budget was exhausted before any visible text was
+          // emitted, so content comes back empty.
+          return Promise.resolve(anthropicResponse(''));
+        }
+        return Promise.resolve(anthropicResponse(JSON.stringify([validQuestion])));
+      });
+
+      // Sanity check first: prove this exact paper, sent as a single
+      // unchunked call the way TAPS-4.1/4.2's original code did, really
+      // would have crossed the failure threshold — i.e. this paper is a
+      // genuine reproduction of the original bug, not just a large input.
+      const unchunkedPromptLength = totalPromptLength({
+        messages: [{ role: 'user', content: bigPaper }],
+      });
+      expect(unchunkedPromptLength).toBeGreaterThan(LENGTH_FAILURE_THRESHOLD);
+
+      const result = await service.generateQuizFromPaper('pp-1');
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(anthropicCreateMock.mock.calls.length).toBeGreaterThan(1); // proves chunking happened
+      // Every actual call this run made — one per chunk — stayed under the
+      // same threshold that the single unchunked call above would have
+      // crossed. Chunking, not luck, is what avoided the failure.
+      for (const call of anthropicCreateMock.mock.calls) {
+        const [args] = call as [{ messages: Anthropic.MessageParam[] }];
+        expect(totalPromptLength(args)).toBeLessThan(LENGTH_FAILURE_THRESHOLD);
+      }
+    });
+
+    it('dedupes a question whose source page is duplicated across two chunks by the deliberate chunk overlap', async () => {
+      // 15 pages, default pagesPerChunk=8/overlap=1 => chunk A = pages 1-8,
+      // chunk B = pages 8-15. Page 8 — carrying the one real question in
+      // this paper — lands in BOTH chunks by design (the overlap that
+      // guarantees a boundary-adjacent question is never split in half).
+      // Naive per-chunk generation would persist it twice.
+      const BOUNDARY_QUESTION = 'What is the boundary question?';
+      const paper = buildPagedPaper(15, (n) =>
+        n === 8
+          ? `Filler.\nQ. ${BOUNDARY_QUESTION} (a) A (b) B. Answer: a`
+          : 'Filler only, no question here.',
+      );
+      prismaMock.pastPaper.findUnique.mockResolvedValue({ ...pastPaper, extractedText: paper });
+
+      // See the identical disable/rationale comment on the previous test's
+      // mockImplementation call above.
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      anthropicCreateMock.mockImplementation((args: { messages: Anthropic.MessageParam[] }) => {
+        const sawBoundaryPage = args.messages.some(
+          (m) => typeof m.content === 'string' && m.content.includes(BOUNDARY_QUESTION),
+        );
+        if (sawBoundaryPage) {
+          return Promise.resolve(
+            anthropicResponse(JSON.stringify([{ ...validQuestion, question: BOUNDARY_QUESTION }])),
+          );
+        }
+        // No question in this chunk — a valid (not malformed) empty result.
+        return Promise.resolve(anthropicResponse(JSON.stringify([])));
+      });
+
+      const result = await service.generateQuizFromPaper('pp-1');
+
+      // Without dedup this would be 2 (chunk A and chunk B both saw page 8
+      // whole, and both independently extracted the same question from it).
+      expect(result).toHaveLength(1);
+      expect(prismaMock.quizQuestion.create).toHaveBeenCalledTimes(1);
+      const [[{ data }]] = prismaMock.quizQuestion.create.mock.calls as [
+        [{ data: Record<string, unknown> }],
+      ];
+      expect(data.questionText).toBe(BOUNDARY_QUESTION);
+
+      // Confirm the premise: page 8 really was sent to the provider twice
+      // (i.e. this is a genuine boundary-overlap case, not a coincidence).
+      const callsSeeingBoundaryQuestion = anthropicCreateMock.mock.calls.filter((call) => {
+        const [args] = call as [{ messages: Anthropic.MessageParam[] }];
+        return args.messages.some(
+          (m) => typeof m.content === 'string' && m.content.includes(BOUNDARY_QUESTION),
+        );
+      });
+      expect(callsSeeingBoundaryQuestion.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('makes exactly one provider call for a paper that already fits in one chunk (no behavior change for small papers)', async () => {
+      prismaMock.pastPaper.findUnique.mockResolvedValue(pastPaper); // short, unmarked extractedText
+      anthropicCreateMock.mockResolvedValueOnce(anthropicResponse(JSON.stringify([validQuestion])));
+
+      await service.generateQuizFromPaper('pp-1');
+
+      expect(anthropicCreateMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });
