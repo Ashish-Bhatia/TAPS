@@ -40,8 +40,9 @@ it unblocks) shipped ahead of formal sprint planning — a real bucket, a real `
 and a real uploaded/fetched-back file confirming `PastPaper.fileUrl` now has an actual producer.
 `TAPS-4.5` (quiz-generation chunking, `docs/adr/025-quiz-generation-paper-chunking.md`) and
 `TAPS-4.6` (Chanakya-font Devanagari mojibake, `docs/adr/024-chanakya-devanagari-mojibake-conversion.md`)
-are both done. `TAPS-4.4` (seed real content in production, still needing a founder/product
-decision on which board(s)) remains open. Sprints 1–6 summaries: `docs/sprints/`. Backlog:
+are both done, and `TAPS-4.7` proved both live end-to-end against real production services (real
+R2, real Neon DB, real OpenAI) — 225 real `QuizQuestion` rows now exist for the CTET exam board,
+which also finally closes `TAPS-4.4`. Sprints 1–6 summaries: `docs/sprints/`. Backlog:
 `docs/backlog/BACKLOG.md`.
 
 ## Contributing
