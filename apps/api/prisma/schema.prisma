@@ -129,6 +129,12 @@ model Syllabus {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // @@unique added by TAPS-2.15, mirroring TAPS-2.4's ExamBoard.name @unique:
+  // the syllabus seed script needs to upsert idempotently by (board, subject)
+  // (Prisma's `upsert` only accepts unique/id fields in `where`), and a board
+  // having two rows for the same subject would be a genuine data-integrity
+  // bug regardless of seeding — see docs/runbooks/database-seeding.md.
+  @@unique([examBoardId, subject])
   @@index([examBoardId])
   @@index([subject])
   @@map("syllabuses")

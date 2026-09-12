@@ -47,8 +47,16 @@ Also closed: `TAPS-1.30` (branch cleanup, 17 branches down to 3) and `TAPS-1.29`
 Dependabot/security overview re-verified directly via the GitHub UI, after the API repeatedly
 403'd Claude Code's token). New from that re-verification, not yet started: `TAPS-1.32` (3
 High-severity `multer` DoS advisories) and `TAPS-1.33` (CodeQL setup). `TAPS-1.31` (Anthropic vendor
-decision) is deferred to the founder. Sprint 8 not yet planned. Sprints 1–7 summaries:
-`docs/sprints/`. Backlog: `docs/backlog/BACKLOG.md`.
+decision) is deferred to the founder. Since then, `TAPS-2.14`'s investigation found `Syllabus` had
+no admin CRUD and no `SyllabusTopic` model (topics are a flat `String[]` on `Syllabus` itself,
+matching the architecture doc), which scoped `TAPS-2.15`: real, official-source syllabus content
+(never `sarkariteachers.com`) now seeded for 4 of the 9 real exam boards — CTET, HTET, REET, DSSSB
+— with the other 5 deliberately left unseeded rather than fabricated (each board's specific
+blocker — a hijacked domain, a JS-only SPA, no indexed syllabus PDF — is documented in that story's
+backlog row and in `docs/runbooks/database-seeding.md`). `TAPS-3.9` wired the `/syllabus` category
+page to real data the same way `TAPS-3.6` already wired the per-board pages; `/previous-papers` and
+`/study-materials` have the identical stale-placeholder bug, filed as `TAPS-3.10`. Sprint 8 not yet
+formally planned. Sprints 1–7 summaries: `docs/sprints/`. Backlog: `docs/backlog/BACKLOG.md`.
 
 ## Contributing
 
