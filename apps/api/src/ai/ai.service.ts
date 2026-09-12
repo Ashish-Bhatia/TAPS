@@ -13,6 +13,7 @@ import {
   OpenAIQuizProvider,
   type QuizGenerationProvider,
 } from './ai.providers.js';
+import { chunkPastPaperText, dedupeQuestions } from './paper-chunking.js';
 
 const DIFFICULTIES = new Set<string>(['EASY', 'MEDIUM', 'HARD']);
 
@@ -46,17 +47,31 @@ export class AIService {
    * as a `QuizQuestion` row (`aiGenerated: true`, `reviewedByAdmin: false`
    * per 08-AI-FEATURES-SPEC.md §5's guardrail — never presented as
    * admin-reviewed until an admin actually reviews it). `aiProvider` records
-   * whichever provider actually produced the persisted rows — see
+   * whichever provider actually produced each persisted row — see
    * `extractQuestionsWithFallback` and `docs/adr/012-ai-provider-fallback.md`.
+   *
+   * TAPS-4.5: `extractedText` is first split into page-boundary-aware,
+   * overlapping chunks (`chunkPastPaperText`) — a full-size paper sent as
+   * one completion exhausts `gpt-5.6-terra`'s fixed completion-token budget
+   * on hidden reasoning before emitting any visible output
+   * (`finish_reason: length`); see
+   * `docs/adr/025-quiz-generation-paper-chunking.md`. Each chunk goes
+   * through the exact same fallback/retry pipeline as before, one chunk at
+   * a time; the deliberate overlap between chunks means the same question
+   * can come back from two chunks, so results are deduped
+   * (`dedupeQuestions`) before persistence. A paper small enough to fit in
+   * one chunk makes exactly one call, identical to pre-TAPS-4.5 behavior.
    *
    * Throws `NotFoundException` if `pastPaperId` doesn't exist,
    * `PastPaperNotExtractedError` if `extractionStatus` isn't `DONE`,
    * `AIQuizGenerationError` if Anthropic fails in a non-fallback-eligible way
-   * (auth/malformed-request) or if the model's output still isn't valid JSON
+   * (auth/malformed-request) or if a chunk's output still isn't valid JSON
    * matching the expected shape after one same-provider retry, and
    * `AIAllProvidersFailedError` if Anthropic fails in a fallback-eligible way
-   * and the OpenAI fallback also fails — this never writes partial or
-   * unvalidated rows to the database.
+   * and the OpenAI fallback also fails for any one chunk — this never writes
+   * partial or unvalidated rows to the database: chunk generation runs to
+   * completion (or throws) entirely before the single persistence
+   * transaction at the end.
    */
   async generateQuizFromPaper(pastPaperId: string): Promise<QuizQuestion[]> {
     const pastPaper = await this.prisma.pastPaper.findUnique({ where: { id: pastPaperId } });
@@ -67,15 +82,32 @@ export class AIService {
       throw new PastPaperNotExtractedError(pastPaperId, pastPaper.extractionStatus);
     }
 
-    const { questions, provider } = await this.extractQuestionsWithFallback(
-      pastPaper.extractedText,
-    );
+    const chunks = chunkPastPaperText(pastPaper.extractedText);
+    if (chunks.length > 1) {
+      this.logger.log(
+        `PastPaper ${pastPaperId}: extractedText split into ${chunks.length} chunks for quiz generation`,
+      );
+    }
 
-    // A single transaction: either every extracted question is persisted,
-    // or none are — a partial write would leave a silently incomplete
-    // question bank with no signal that generation actually failed midway.
+    // Sequential, not Promise.all: this project's scale/budget doesn't need
+    // concurrent provider calls, and sequential keeps per-paper generation
+    // well clear of either provider's rate limits — see
+    // docs/adr/025-quiz-generation-paper-chunking.md.
+    const tagged: { question: RawQuizQuestion; provider: AIProvider }[] = [];
+    for (const chunk of chunks) {
+      const { questions, provider } = await this.extractQuestionsWithFallback(chunk);
+      for (const question of questions) {
+        tagged.push({ question, provider });
+      }
+    }
+
+    const deduped = dedupeQuestions(tagged);
+
+    // A single transaction: either every deduped question is persisted, or
+    // none are — a partial write would leave a silently incomplete question
+    // bank with no signal that generation actually failed midway.
     return this.prisma.$transaction(
-      questions.map((q) =>
+      deduped.map(({ question: q, provider }) =>
         this.prisma.quizQuestion.create({
           data: {
             pastPaperId,
@@ -205,7 +237,17 @@ export class AIService {
     );
   }
 
-  /** Returns the validated questions, or `null` if `raw` fails to parse/validate. */
+  /**
+   * Returns the validated questions, or `null` if `raw` fails to
+   * parse/validate. An empty array (`[]`) is a valid result, not a failure:
+   * TAPS-4.5's per-chunk generation means a single call can legitimately
+   * cover a chunk with no extractable questions at all (e.g. a closing
+   * chunk that's mostly exam-hall conduct instructions, per the real
+   * `PastPaper cmtyqyy0z0001sahpuyhz0v24` — see
+   * `docs/audits/2026-09-13-followup.md`'s `extractedText` deep-dive)
+   * — that's a genuine "nothing here" answer, not malformed output that
+   * should burn the one same-provider retry `extractQuestions` allows.
+   */
   private parseAndValidate(raw: string): RawQuizQuestion[] | null {
     let parsed: unknown;
     try {
@@ -220,7 +262,7 @@ export class AIService {
       return null;
     }
 
-    if (!Array.isArray(parsed) || parsed.length === 0) {
+    if (!Array.isArray(parsed)) {
       return null;
     }
 
