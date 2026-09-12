@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ExtractionStatus, PastPaper } from '@prisma/client';
 import { PDFParse } from 'pdf-parse';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { containsChanakyaMojibake, convertChanakyaMojibake } from './chanakya-devanagari.js';
 
 /**
  * TAPS-4.0: extracts text from a `PastPaper`'s source PDF so EPIC 4's quiz
@@ -10,6 +11,12 @@ import { PrismaService } from '../prisma/prisma.service.js';
  * `PastPaper` is created (`PastPaperService.create`, TAPS-2.3's admin CRUD
  * pattern) — see `docs/adr/010-pdf-text-extraction.md` for the `pdf-parse`
  * choice.
+ *
+ * TAPS-4.6: papers whose Hindi sections use the legacy Chanakya font extract
+ * as valid-but-meaningless Unicode mojibake rather than real Devanagari (see
+ * `docs/adr/024-chanakya-devanagari-mojibake-conversion.md`) — every
+ * extraction runs through `convertChanakyaMojibake` to clean that up before
+ * it's persisted, so it never ships raw to the quiz-generation AI or a user.
  */
 @Injectable()
 export class PastPaperIngestionService {
@@ -30,7 +37,13 @@ export class PastPaperIngestionService {
    */
   async ingest(pastPaperId: string, fileUrl: string): Promise<PastPaper> {
     try {
-      const extractedText = await this.extractText(fileUrl);
+      const rawText = await this.extractText(fileUrl);
+      if (containsChanakyaMojibake(rawText)) {
+        this.logger.log(
+          `Chanakya-font Devanagari mojibake detected and converted for PastPaper ${pastPaperId}`,
+        );
+      }
+      const extractedText = convertChanakyaMojibake(rawText);
       return await this.prisma.pastPaper.update({
         where: { id: pastPaperId },
         data: { extractedText, extractionStatus: ExtractionStatus.DONE },
