@@ -14,6 +14,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { PublicContentModule } from './public-content/public-content.module.js';
 import { QuizAttemptModule } from './quiz-attempt/quiz-attempt.module.js';
 import { RevalidationModule } from './revalidation/revalidation.module.js';
+import { StorageModule } from './storage/storage.module.js';
 import { UserAuthModule } from './user-auth/user-auth.module.js';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
@@ -36,6 +37,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PublicContentModule,
     UserAuthModule,
     QuizAttemptModule,
+    StorageModule,
   ],
   controllers: [AppController, HealthController, ReadinessController],
   providers: [AppService, { provide: APP_FILTER, useClass: PrismaExceptionFilter }],

@@ -36,9 +36,12 @@ live; deploy steps: `docs/runbooks/deploy-api.md`. `apps/web` is live on Vercel 
 ## Current sprint
 
 **Sprint 6** — closed (EPIC 6: mobile app, fully done — exam board browsing, auth, quiz-taking,
-progress dashboard). `TAPS-4.4` (seed real content in production) filed as a follow-up, not yet
-started — needs a real source document + admin action. Sprint 7 not yet planned. Sprints 1–6
-summaries: `docs/sprints/`. Backlog:
+progress dashboard). Sprint 7 not yet planned; `TAPS-2.13` (Cloudflare R2 object storage + the
+`apps/api` upload path it unblocks) was done ahead of that planning — a real bucket, a real
+`POST /storage/upload`, and a real uploaded/fetched-back file confirming `PastPaper.fileUrl` now
+has an actual producer. `TAPS-4.4` (seed real content in production) is next in line and no longer
+blocked on storage, but still needs a founder/product decision on which board(s) — not yet
+started. Sprints 1–6 summaries: `docs/sprints/`. Backlog:
 `docs/backlog/BACKLOG.md`.
 
 ## Contributing
